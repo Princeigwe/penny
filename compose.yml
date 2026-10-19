@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+  penny-db:
+    image: postgres:15
+    container_name: 'penny_api_db'
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: penny_api_db_pgadmin
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    restart: always
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+
+
+
+volumes:
+  pgdata:
+  pgadmin_data:
