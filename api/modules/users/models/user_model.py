@@ -17,4 +17,4 @@ class User(Base):
   first_name: Mapped[str] = mapped_column(String(50), nullable=False)
   last_name: Mapped[str] = mapped_column(String(50), nullable=False)
   gender: Mapped[Gender] = mapped_column(Enum(Gender), nullable=False)
-  created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+  created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

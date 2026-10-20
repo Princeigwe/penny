@@ -3,6 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
+# Import routers
+from modules.users.user_router import router as users_router
+
+
 logging.basicConfig(
   level=logging.INFO,
   format="{asctime} - {levelname} - {message}",
@@ -32,6 +36,9 @@ app.add_middleware(
   allow_methods=["*"],
   allow_headers=["*"],
 )
+
+
+app.include_router(users_router)
 
 
 @app.get("/")
