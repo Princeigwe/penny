@@ -1,6 +1,8 @@
+
 from pydantic import BaseModel, Field
-from typing import Literal
+
 from ..enums.gender import Gender
+
 
 class CreateUserDto(BaseModel):
     first_name: str = Field(..., description="First name of the user")

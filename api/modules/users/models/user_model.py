@@ -1,11 +1,13 @@
-from database_config import Base
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Date, DateTime, Enum, Column, Integer, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime
-from ..enums.gender import Gender
 import uuid
+from datetime import datetime
 
+from sqlalchemy import Column, DateTime, Enum, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from database_config import Base
+
+from ..enums.gender import Gender
 
 
 class User(Base):

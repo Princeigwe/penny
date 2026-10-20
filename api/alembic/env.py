@@ -1,15 +1,10 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-import os
 from dotenv import load_dotenv
-from database_config import Base, DATABASE_URL
-from modules.users.models.user_model import User
-
-
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+from database_config import DATABASE_URL, Base
 
 load_dotenv()
 

@@ -1,10 +1,10 @@
 from fastapi import Depends, HTTPException, status
-from database_config import get_db
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import DatabaseError
-from .models.user_model import User
-from .enums.gender import Gender
 
+from database_config import get_db
+
+from .enums.gender import Gender
+from .models.user_model import User
 
 
 async def create_user(
