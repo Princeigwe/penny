@@ -24,8 +24,6 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     restart: always
-    depends_on:
-      - postgres
     volumes:
       - pgadmin_data:/var/lib/pgadmin
 

@@ -9,11 +9,11 @@ load_dotenv()
 # Base class for all the models/tables defined for SQLAlchemy ORM
 Base = declarative_base()  # this is what is imported in alembic/env.py
 
-POSTGRES_USER = os.environ.get("POSTGRES_USER")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
-POSTGRES_DB = os.environ.get("POSTGRES_DB")
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT")
+POSTGRES_USER = os.environ.get("DB_USERNAME")
+POSTGRES_PASSWORD = os.environ.get("DB_PASSWORD")
+POSTGRES_DB = os.environ.get("DB_NAME")
+POSTGRES_HOST = os.environ.get("DB_HOST")
+POSTGRES_PORT = os.environ.get("DB_PORT")
 
 DATABASE_URL = (
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}"

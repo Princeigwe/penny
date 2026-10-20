@@ -4,7 +4,11 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 import os
 from dotenv import load_dotenv
-from database_config import Base
+from database_config import Base, DATABASE_URL
+from modules.users.models.user_model import User
+
+
+
 from alembic import context
 
 load_dotenv()
@@ -13,8 +17,13 @@ load_dotenv()
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-database_url = os.getenv("DATABASE_URL", "sqlite:///fallback.db")
-config.set_main_option("sqlalchemy.url", database_url)
+# database_url = os.getenv("DATABASE_URL", "sqlite:///fallback.db")
+# config.set_main_option("sqlalchemy.url", database_url)
+
+# setting sqlalchemy url to custom database url
+if DATABASE_URL:
+    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
