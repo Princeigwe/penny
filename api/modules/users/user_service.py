@@ -1,3 +1,4 @@
+from agentic_workflows.ai_layer import ai
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -30,5 +31,15 @@ async def create_user(
     db.add(new_user)
     db.commit()
     return new_user
-  except Exception as e:
+  except HTTPException as e:
     print(e)
+
+
+
+async def talk_to_agent(human_msg: str, user_thread_id: str):
+  ai_response = await ai.invoke(human_msg, user_thread_id)
+  return{
+    "user_id": user_thread_id,
+    "message": human_msg,
+    "penny": ai_response
+  }

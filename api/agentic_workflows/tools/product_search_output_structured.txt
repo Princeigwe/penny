@@ -1,0 +1,15 @@
+[
+  {
+    'id': 'hBKIcNg', 
+    'title': 'Velociti Pace Running Shoes', 
+    'brand': 'Under Armour', 
+    'price': 100.0, 
+    'compare_at': None, 
+    'currency': 'USD', 
+    'retailer': 'underarmour.com', 
+    'rating': None, 
+    'rating_count': None, 
+    'main_image': 'https://cdn.trychannel3.com/cleaned/v1/a3c8613d-32df-42f1-ae6a-bae22357a1ab?aid=01M5DSH42CSFMVWVNAZ9AM8E3Z&mid=oKaH', 
+    'buy_url': 'https://buy.trychannel3.com/hBKIcNg-oKaH-H6puj5?o=01KRGN10CQ4SY3RH8Q9A9K66AV&aid=01M5DSH42CSFMVWVNAZ9AM8E3Z'
+  }
+]
