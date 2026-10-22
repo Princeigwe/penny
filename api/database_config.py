@@ -17,17 +17,16 @@ POSTGRES_HOST = os.environ.get("DB_HOST")
 POSTGRES_PORT = os.environ.get("DB_PORT")
 
 DATABASE_URL = (
-    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
-    f"@{POSTGRES_HOST}/{POSTGRES_DB}"
+    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DB}"
 )
 
 engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(
-    autocommit=False, 
-    autoflush=False, 
+    autocommit=False,
+    autoflush=False,
     bind=engine,
-    expire_on_commit=False # keeping data loaded in memory after commit
+    expire_on_commit=False,  # keeping data loaded in memory after commit
 )
 
 

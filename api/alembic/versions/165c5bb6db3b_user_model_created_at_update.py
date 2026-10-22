@@ -5,11 +5,12 @@ Revises: 0794b40d541e
 Create Date: 2026-10-20 08:24:54.777290
 
 """
+
 from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
-revision: str = '165c5bb6db3b'
-down_revision: str | Sequence[str] | None = '0794b40d541e'
+revision: str = "165c5bb6db3b"
+down_revision: str | Sequence[str] | None = "0794b40d541e"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

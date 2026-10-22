@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 from ..enums.gender import Gender
