@@ -27,6 +27,7 @@ from ..templates.user_intent_classifier import (
 )
 from ..templates.system_intro_template import template as system_intro_template
 from ..templates.product_search_request_template import template as product_search_request_template
+from ..templates.product_search_response_template import template as product_search_response_template
 from ..tools.channel3_tools import product_search
 
 
@@ -116,7 +117,9 @@ def search_product_request_agent(state: State):
     formatted_prompt = prompt.format(query=last_human_message)
     llm_response = llm.invoke(formatted_prompt)
     json_parsed_response = parser.parse(llm_response.content)
-    print(f"computed json_parsed_response: {json_parsed_response}")
+    logging.info(
+      f"Agentic Workflow: State Graph: computed search product request agent response {json_parsed_response}"
+    )
     return {
       "product_description": json_parsed_response["product_description"],
       "min_price": json_parsed_response["min_price"],
@@ -125,11 +128,42 @@ def search_product_request_agent(state: State):
     }
 
 
-def search_product_response_agent(state: State):
+product_search_tool_node = ToolNode(tools=[product_search])
+async def search_product_response_agent(state: State):
   """
   this agent is responsible for giving a response based on the query initiated by the search_product_request_agent
   """
-  pass
+  last_human_message = state["messages"][-1].content
+  user_id = state["user_id"]
+  dummy_ai_message = AIMessage(
+    content="",
+    tool_calls = [
+      ToolCall(
+        name="product_search",
+        args={
+          "query": state["product_description"],
+          "min_price": state["min_price"],
+          "max_price": state["max_price"],
+          "gender": state["gender"],
+        },
+        id="call_1"
+      )
+    ]
+  )
+  product_search_results = await product_search_tool_node.ainvoke([dummy_ai_message])
+
+  product_search_response_prompt = PromptTemplate.from_template(
+    template=product_search_response_template
+  )
+  formatted_prompt = product_search_response_prompt.format(
+    query=state["query"],
+    product_search_results=product_search_results
+  )
+  llm_response = llm.invoke(formatted_prompt)
+  logging.info(
+    f"Agentic Workflow: State Graph: computed search product response agent response {llm_response.content}"
+  )
+  return {"messages": [llm_response]}
 
 
 def search_product_with_image_agent(state: State):
