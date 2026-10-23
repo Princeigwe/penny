@@ -39,6 +39,24 @@ async def create_user(
     print(e)
 
 
+async def get_user_by_email(email: str, db: Session = Depends(get_db)):
+	try:
+		user = db.query(User).filter(User.email == email).first()
+		if not user:
+			raise HTTPException(
+				status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+			)
+		return user
+	except HTTPException as e:
+		logging.error(f"Error in user lookup by email: {e}")
+		if e.status_code == status.HTTP_404_NOT_FOUND:
+			raise e
+		raise HTTPException(
+			status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+			detail="Failed to get user by email",
+		)
+
+
 async def talk_to_agent(human_msg: str, user_thread_id: str):
   ai_response = await ai.invoke(human_msg, user_thread_id)
   return {"user_id": user_thread_id, "message": human_msg, "penny": ai_response}
