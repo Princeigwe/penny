@@ -60,12 +60,12 @@ async def product_search(
 
 ###### TESTING SCRIPT ######``
 
-if __name__ == "__main__":
-  asyncio.run(
-		product_search(
-			query="running shoes",
-			min_price=100,
-			max_price=300,
-			gender="female"
-		)
-	)
+# if __name__ == "__main__":
+#   asyncio.run(
+# 		product_search(
+# 			query="running shoes",
+# 			min_price=100,
+# 			max_price=300,
+# 			gender="female"
+# 		)
+# 	)

@@ -1,0 +1,9 @@
+{
+  'id': '2HS590065J625131B', 
+  'status': 'PAYER_ACTION_REQUIRED', 
+  'payment_source': {'paypal': {}}, 
+  'links': [
+    {'href': 'https://api.sandbox.paypal.com/v2/checkout/orders/2HS590065J625131B', 'rel': 'self', 'method': 'GET'}, 
+    {'href': 'https://www.sandbox.paypal.com/checkoutnow?token=2HS590065J625131B', 'rel': 'payer-action', 'method': 'GET'}
+  ]
+}
