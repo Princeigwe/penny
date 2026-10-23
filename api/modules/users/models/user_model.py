@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from database_config import Base
 
 from ..enums.gender import Gender
-
+from ..enums.role import Role
 
 class User(Base):
     __tablename__ = "users"
@@ -21,4 +21,5 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String(50), nullable=False)
     last_name: Mapped[str] = mapped_column(String(50), nullable=False)
     gender: Mapped[Gender] = mapped_column(Enum(Gender), nullable=False)
+    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.CUSTOMER)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
