@@ -89,11 +89,15 @@ async def create_order(amount: int):
 
 
 
-async def capture_order(order_id, token):
+async def capture_order(order_id):
+  access_token = await get_access_token()
+  if not access_token:
+    return None
+    
   response = requests.post(
     url=f"{PAYPAL_SANDBOX_API_BASE_URL}/v2/checkout/orders/{order_id}/capture",
     headers={
-      "Authorization": f"Bearer {token}",
+      "Authorization": f"Bearer {access_token}",
       "Content-Type": "application/json",
     },
   )
@@ -104,6 +108,9 @@ async def capture_order(order_id, token):
 ###### TESTING SCRIPT ######``
 
 if __name__ == "__main__":
-  asyncio.run(
-		create_order(100)
-	)
+  create_order_response = asyncio.run(create_order(100))
+
+  input("Press Enter after approving the payment...")
+  response_order_id = create_order_response["order_id"]
+  capture_order_response = asyncio.run(capture_order(response_order_id))
+  print("CAPTURE ORDER RESPONSE: ", capture_order_response)
