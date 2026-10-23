@@ -56,7 +56,3 @@ async def get_user_by_email(email: str, db: Session = Depends(get_db)):
 			detail="Failed to get user by email",
 		)
 
-
-async def talk_to_agent(human_msg: str, user_thread_id: str):
-  ai_response = await ai.invoke(human_msg, user_thread_id)
-  return {"user_id": user_thread_id, "message": human_msg, "penny": ai_response}
