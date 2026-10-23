@@ -189,6 +189,13 @@ def e_commerce_web_product_search_agent(state: State):
     pass
 
 
+def order_items_aggregate_agent(state: State):
+  """
+  this agent is responsible for aggregating order items from the user's messages.
+  """
+  pass
+
+
 def payment_confirmation_trigger_agent(state: State):
     """
     this agent is responsible for triggering payment confirmation to the frontend, to enable the user pay for their desired product.
@@ -208,6 +215,9 @@ state_workflow.add_node(
   "e_commerce_web_product_search_agent", e_commerce_web_product_search_agent
 )
 state_workflow.add_node(
+  "order_items_aggregate_agent", order_items_aggregate_agent
+)
+state_workflow.add_node(
   "payment_confirmation_trigger_agent", payment_confirmation_trigger_agent
 )
 
@@ -225,7 +235,7 @@ def coordinator_agent_condition(state: State):
     elif coordinating_intent == User_Intent.E_COMMERCE_PRODUCT_SEARCH:
         return "e_commerce_web_product_search_agent"
     else:
-        return "payment_confirmation_trigger_agent"
+        return "order_items_aggregate_agent"
 
 
 state_workflow.add_edge(START, "coordinator_agent")
@@ -236,6 +246,7 @@ state_workflow.add_edge("search_product_response_agent", END)
 state_workflow.add_edge("search_product_with_image_agent", END)
 state_workflow.add_edge("product_url_lookup_agent", END)
 state_workflow.add_edge("e_commerce_web_product_search_agent", END)
+state_workflow.add_edge("order_items_aggregate_agent", "payment_confirmation_trigger_agent")
 state_workflow.add_edge("payment_confirmation_trigger_agent", END)
 
 
