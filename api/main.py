@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import routers
 from modules.users.user_router import router as users_router
+from modules.auth.auth_router import router as auth_router
+from modules.agent_interface.agent_interface_router import router as agent_interface_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +40,8 @@ app.add_middleware(
 
 
 app.include_router(users_router)
+app.include_router(auth_router)
+app.include_router(agent_interface_router)
 
 
 @app.get("/")
