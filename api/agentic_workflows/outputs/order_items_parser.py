@@ -12,6 +12,8 @@ class OrderItemDto(BaseModel):
 
 class OrderItemsParser(BaseModel):
   order_items: list[OrderItemDto] = Field(..., description="List of order items", min_length=1)
+  total_price: Decimal = Field(..., description="Total price of the order")
+  currency: str = Field(..., description="Currency of the total price")
 
   # def to_dict(self) -> dict:
   #   return self.dict()

@@ -30,5 +30,8 @@ Example of order items list:
   }},
 ]
 
+sum a **total_price** = sum([item["unit_price"] * item["quantity"] for item in order_items])
+with a default **currency** = "USD"
+
 {format_instructions}
 """

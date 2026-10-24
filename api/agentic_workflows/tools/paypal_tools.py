@@ -28,7 +28,8 @@ async def get_access_token():
     return None
 
 
-async def create_order(amount: int):
+@tool(description="create order with PayPal Orders API")
+async def create_order(amount: float):
   try:
     access_token = await get_access_token()
     if not access_token:
@@ -107,10 +108,10 @@ async def capture_order(order_id):
 
 ###### TESTING SCRIPT ######``
 
-if __name__ == "__main__":
-  create_order_response = asyncio.run(create_order(100))
+# if __name__ == "__main__":
+#   create_order_response = asyncio.run(create_order(100))
 
-  input("Press Enter after approving the payment...")
-  response_order_id = create_order_response["order_id"]
-  capture_order_response = asyncio.run(capture_order(response_order_id))
-  print("CAPTURE ORDER RESPONSE: ", capture_order_response)
+#   input("Press Enter after approving the payment...")
+#   response_order_id = create_order_response["order_id"]
+#   capture_order_response = asyncio.run(capture_order(response_order_id))
+#   print("CAPTURE ORDER RESPONSE: ", capture_order_response)

@@ -31,6 +31,9 @@ from ..templates.product_search_request_template import template as product_sear
 from ..templates.product_search_response_template import template as product_search_response_template
 from ..templates.order_items_aggregator_template import template as order_items_aggregator_template
 from ..tools.channel3_tools import product_search
+from ..tools.paypal_tools import create_order
+from ..templates.create_order_template import template as create_order_template
+
 from modules.orders.dtos.order_items_dto import OrderItemsDto
 
 
@@ -61,6 +64,9 @@ class State(TypedDict):
   max_price: int | None = None
   gender: str | None = None
   order_items: OrderItemsDto | None = None
+  total_price: float | None = None
+  currency: str | None = None
+  
 
 
 class ConfigSchema(TypedDict):
@@ -210,14 +216,55 @@ def order_items_aggregate_agent(state: State):
   logging.info(
     f"Agentic Workflow: State Graph: computed order items aggregate agent response {json_parsed_response}"
   )
-  return {"order_items": json_parsed_response["order_items"]}
+  return {
+    "order_items": json_parsed_response["order_items"],
+    "total_price": json_parsed_response["total_price"],
+    "currency": json_parsed_response["currency"]
+  }
 
 
-def payment_confirmation_trigger_agent(state: State):
+paypal_create_order_tool_node = ToolNode(tools=[create_order])
+async def order_create_agent(state: State):
   """
-  this agent is responsible for triggering payment confirmation to the frontend, to enable the user pay for their desired product.
+  this agent is responsible for generating link that creates a PayPal order.
   """
-  pass
+  order_items = state["order_items"]
+  total_price = state["total_price"]
+  dummy_ai_message = AIMessage(
+    content="",
+    tool_calls=[
+      ToolCall(
+        name="create_order",
+        args={
+          "amount": total_price,
+        },
+        id="call_1"
+      )
+    ]
+  )
+  paypal_create_order_result = await paypal_create_order_tool_node.ainvoke([dummy_ai_message])
+  tool_message = paypal_create_order_result[0]
+  payload = json.loads(tool_message.content)
+
+  paypal_payment_link = payload["payer_action_browser_link"]
+  logging.info(
+    f"Agentic Workflow: State Graph: computed paypal create order result {paypal_create_order_result}"
+  )
+
+  paypal_create_order_prompt = PromptTemplate.from_template(
+    template=create_order_template
+  )
+  formatted_prompt = paypal_create_order_prompt.format(
+    order_items=order_items,
+    total_price=total_price,
+    paypal_payment_link=paypal_payment_link
+  )
+  llm_response = llm.invoke(formatted_prompt)
+  logging.info(
+    f"Agentic Workflow: State Graph: computed order create agent response {llm_response.content}"
+  )
+  return {"messages": [llm_response]}
+  
 
 
 state_workflow.add_node("coordinator_agent", coordinator_agent)
@@ -235,7 +282,7 @@ state_workflow.add_node(
   "order_items_aggregate_agent", order_items_aggregate_agent
 )
 state_workflow.add_node(
-  "payment_confirmation_trigger_agent", payment_confirmation_trigger_agent
+  "order_create_agent", order_create_agent
 )
 
 
@@ -263,8 +310,8 @@ state_workflow.add_edge("search_product_response_agent", END)
 state_workflow.add_edge("search_product_with_image_agent", END)
 state_workflow.add_edge("product_url_lookup_agent", END)
 state_workflow.add_edge("e_commerce_web_product_search_agent", END)
-state_workflow.add_edge("order_items_aggregate_agent", "payment_confirmation_trigger_agent")
-state_workflow.add_edge("payment_confirmation_trigger_agent", END)
+state_workflow.add_edge("order_items_aggregate_agent", "order_create_agent")
+state_workflow.add_edge("order_create_agent", END)
 
 
 async def state_run(human_msg: str, user_thread_id: str):
