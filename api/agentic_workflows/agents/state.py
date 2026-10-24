@@ -63,6 +63,7 @@ class State(TypedDict):
   min_price: int | None = None
   max_price: int | None = None
   gender: str | None = None
+  order_id: str | None = None
   order_items: OrderItemsDto | None = None
   total_price: float | None = None
   currency: str | None = None
@@ -247,6 +248,7 @@ async def order_create_agent(state: State):
   payload = json.loads(tool_message.content)
 
   paypal_payment_link = payload["payer_action_browser_link"]
+  order_id = payload["order_id"]
   logging.info(
     f"Agentic Workflow: State Graph: computed paypal create order result {paypal_create_order_result}"
   )
@@ -263,7 +265,7 @@ async def order_create_agent(state: State):
   logging.info(
     f"Agentic Workflow: State Graph: computed order create agent response {llm_response.content}"
   )
-  return {"messages": [llm_response]}
+  return {"messages": [llm_response], "order_id": order_id}
   
 
 

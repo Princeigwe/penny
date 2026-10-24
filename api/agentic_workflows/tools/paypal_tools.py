@@ -90,7 +90,7 @@ async def create_order(amount: float):
 
 
 
-async def capture_order(order_id):
+async def capture_order(order_id: str):
   access_token = await get_access_token()
   if not access_token:
     return None
