@@ -14,6 +14,8 @@ The {query} contains details of the products the user has decided to buy. Get ex
 2. The **quantity** of the product they are interested in
 3. The **unit_price** of the product they are interested in
 
+If no quantity is provided, the default value is 1
+
 Compute these attributes at a higher level into a list of order items. 
 
 Example of order items list:

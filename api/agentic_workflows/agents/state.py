@@ -35,6 +35,7 @@ from ..tools.paypal_tools import create_order
 from ..templates.create_order_template import template as create_order_template
 
 from modules.orders.dtos.order_items_dto import OrderItemsDto
+from utils.sse_management import publish_sse
 
 
 POSTGRES_USER = os.environ.get("DB_USERNAME")
@@ -265,6 +266,16 @@ async def order_create_agent(state: State):
   logging.info(
     f"Agentic Workflow: State Graph: computed order create agent response {llm_response.content}"
   )
+
+  # passing user and order IDs to the sse_generator for frontend to stream data with server-sent-events
+  user_id = state["user_id"]
+  await publish_sse(
+    {
+      "user_id": str(user_id),
+      "order_id": str(order_id)
+    }
+  )
+
   return {"messages": [llm_response], "order_id": order_id}
   
 
