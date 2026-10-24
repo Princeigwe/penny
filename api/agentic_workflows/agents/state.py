@@ -22,13 +22,16 @@ from ..llm import llm
 from ..memory.context_window import trimmed_messages
 from ..outputs.coordinator_output import Coordinator_Classifier_Output
 from ..outputs.product_search_request_parser import Product_Search_Request_Parser
+from ..outputs.order_items_parser import OrderItemsParser
 from ..templates.user_intent_classifier import (
     template as user_intent_classifier_template,
 )
 from ..templates.system_intro_template import template as system_intro_template
 from ..templates.product_search_request_template import template as product_search_request_template
 from ..templates.product_search_response_template import template as product_search_response_template
+from ..templates.order_items_aggregator_template import template as order_items_aggregator_template
 from ..tools.channel3_tools import product_search
+from modules.orders.dtos.order_items_dto import OrderItemsDto
 
 
 POSTGRES_USER = os.environ.get("DB_USERNAME")
@@ -38,94 +41,95 @@ POSTGRES_HOST = os.environ.get("DB_HOST")
 POSTGRES_PORT = os.environ.get("DB_PORT")
 
 DATABASE_URL = (
-    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DB}"
+  f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DB}"
 )
 
 
 connection_kwargs = {
-    "autocommit": True,
-    "prepare_threshold": 0,
+  "autocommit": True,
+  "prepare_threshold": 0,
 }
 
 
 class State(TypedDict):
-    user_id: str
-    messages: Annotated[list[AnyMessage], add_messages]
-    query: str
-    intent: str
-    product_description: str | None = None
-    min_price: int | None = None
-    max_price: int | None = None
-    gender: str | None = None
+  user_id: str
+  messages: Annotated[list[AnyMessage], add_messages]
+  query: str
+  intent: str
+  product_description: str | None = None
+  min_price: int | None = None
+  max_price: int | None = None
+  gender: str | None = None
+  order_items: OrderItemsDto | None = None
 
 
 class ConfigSchema(TypedDict):
-    msg: str
+  msg: str
 
 
 state_workflow = StateGraph(State, config_schema=ConfigSchema)
 
 
 def coordinator_agent(state: State, config=ConfigSchema):
-    """
-    The coordinator agent is the main orchestrator of the state workflow.
+  """
+  The coordinator agent is the main orchestrator of the state workflow.
 
-    It is responsible for: assigning messages to agents based on the user's intent
+  It is responsible for: assigning messages to agents based on the user's intent
 
-    Args:
-      state (State): The current state of the workflow.
-      config (ConfigSchema): The configuration of the workflow.
-    """
-    msg = config["configurable"].get("msg")
-    if not msg:
-        return
-    parser = JsonOutputParser(pydantic_object=Coordinator_Classifier_Output)
-    prompt = PromptTemplate(
-        template=user_intent_classifier_template,
-        partial_variables={"format_instructions": parser.get_format_instructions},
-    )
-    formatted_prompt = prompt.format(query=msg)
-    llm_response = llm.invoke(formatted_prompt)
-    json_parsed_response = parser.parse(llm_response.content)
+  Args:
+    state (State): The current state of the workflow.
+    config (ConfigSchema): The configuration of the workflow.
+  """
+  msg = config["configurable"].get("msg")
+  if not msg:
+      return
+  parser = JsonOutputParser(pydantic_object=Coordinator_Classifier_Output)
+  prompt = PromptTemplate(
+    template=user_intent_classifier_template,
+    partial_variables={"format_instructions": parser.get_format_instructions},
+  )
+  formatted_prompt = prompt.format(query=msg)
+  llm_response = llm.invoke(formatted_prompt)
+  json_parsed_response = parser.parse(llm_response.content)
 
-    return {"query": msg, "intent": json_parsed_response["intent"]}
+  return {"query": msg, "intent": json_parsed_response["intent"]}
 
 
 def system_enquiry_agent(state: State):
-    """
-    This agent is responsible for answering questions based on system functionalities
-    """
-    prompt = PromptTemplate.from_template(system_intro_template)
-    formatted = prompt.format(
-        query=state["query"], state_messages=state.get("messages", [])
-    )
-    llm_response = llm.invoke(formatted)
-    return {"messages": [llm_response]}
+  """
+  This agent is responsible for answering questions based on system functionalities
+  """
+  prompt = PromptTemplate.from_template(system_intro_template)
+  formatted = prompt.format(
+    query=state["query"], state_messages=state.get("messages", [])
+  )
+  llm_response = llm.invoke(formatted)
+  return {"messages": [llm_response]}
 
 
 def search_product_request_agent(state: State):
-    """
-    this agent is responsible for searching products on the web based on user queries, along with filters.
-    """
-    last_human_message = state["messages"][-1].content
-    user_id = state["user_id"]
-    parser = JsonOutputParser(pydantic_object=Product_Search_Request_Parser)
-    prompt = PromptTemplate(
-      template=product_search_request_template,
-      partial_variables={"format_instructions": parser.get_format_instructions},
-    )
-    formatted_prompt = prompt.format(query=last_human_message)
-    llm_response = llm.invoke(formatted_prompt)
-    json_parsed_response = parser.parse(llm_response.content)
-    logging.info(
-      f"Agentic Workflow: State Graph: computed search product request agent response {json_parsed_response}"
-    )
-    return {
-      "product_description": json_parsed_response["product_description"],
-      "min_price": json_parsed_response["min_price"],
-      "max_price": json_parsed_response["max_price"],
-      "gender": json_parsed_response["gender"],
-    }
+  """
+  this agent is responsible for searching products on the web based on user queries, along with filters.
+  """
+  last_human_message = state["messages"][-1].content
+  user_id = state["user_id"]
+  parser = JsonOutputParser(pydantic_object=Product_Search_Request_Parser)
+  prompt = PromptTemplate(
+    template=product_search_request_template,
+    partial_variables={"format_instructions": parser.get_format_instructions},
+  )
+  formatted_prompt = prompt.format(query=last_human_message)
+  llm_response = llm.invoke(formatted_prompt)
+  json_parsed_response = parser.parse(llm_response.content)
+  logging.info(
+    f"Agentic Workflow: State Graph: computed search product request agent response {json_parsed_response}"
+  )
+  return {
+    "product_description": json_parsed_response["product_description"],
+    "min_price": json_parsed_response["min_price"],
+    "max_price": json_parsed_response["max_price"],
+    "gender": json_parsed_response["gender"],
+  }
 
 
 product_search_tool_node = ToolNode(tools=[product_search])
@@ -167,40 +171,53 @@ async def search_product_response_agent(state: State):
 
 
 def search_product_with_image_agent(state: State):
-    """
-    this agent is responsible for searching products on the web based on user image url.
-    """
-    pass
+  """
+  this agent is responsible for searching products on the web based on user image url.
+  """
+  pass
 
 
 def product_url_lookup_agent(state: State):
-    """
-    this agent is responsible for looking up products on the web based on the product url from a brand or website.
-    """
-    pass
+  """
+  this agent is responsible for looking up products on the web based on the product url from a brand or website.
+  """
+  pass
 
 
 def e_commerce_web_product_search_agent(state: State):
-    """
-    this agent is responsible for searching products on specific e-commerce websites.
+  """
+  this agent is responsible for searching products on specific e-commerce websites.
 
-    example: can i find a red shoe on amazon?
-    """
-    pass
+  example: can i find a red shoe on amazon?
+  """
+  pass
 
 
 def order_items_aggregate_agent(state: State):
   """
   this agent is responsible for aggregating order items from the user's messages.
   """
-  pass
+  trimmed_state_messages = trimmed_messages(state["messages"])
+  user_id = state["user_id"]
+  parser = JsonOutputParser(pydantic_object=OrderItemsParser)
+  prompt = PromptTemplate(
+    template=order_items_aggregator_template,
+    partial_variables={"format_instructions": parser.get_format_instructions},
+  )
+  formatted_prompt = prompt.format(query=state["query"], state_messages=trimmed_state_messages)
+  llm_response = llm.invoke(formatted_prompt)
+  json_parsed_response = parser.parse(llm_response.content)
+  logging.info(
+    f"Agentic Workflow: State Graph: computed order items aggregate agent response {json_parsed_response}"
+  )
+  return {"order_items": json_parsed_response["order_items"]}
 
 
 def payment_confirmation_trigger_agent(state: State):
-    """
-    this agent is responsible for triggering payment confirmation to the frontend, to enable the user pay for their desired product.
-    """
-    pass
+  """
+  this agent is responsible for triggering payment confirmation to the frontend, to enable the user pay for their desired product.
+  """
+  pass
 
 
 state_workflow.add_node("coordinator_agent", coordinator_agent)
