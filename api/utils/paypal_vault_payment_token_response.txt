@@ -1,0 +1,31 @@
+{
+  'id': '3pf15469j9969004a', 
+  'customer': {'id': 'UZpPAmYphs'}, 
+  'payment_source': {
+    'paypal': {
+      'shipping': {
+        'name': {'full_name': 'John Doe'}, 
+        'address': {
+          'address_line_1': '2211 N First St', 
+          'admin_area_2': 'San Jose', 
+          'admin_area_1': 'CA', 
+          'postal_code': '95131', 
+          'country_code': 'US'
+        }
+      }, 
+      'usage_type': 'MERCHANT', 
+      'email_address': 'sb-hq00t53508320@personal.example.com', 
+      'payer_id': 'VB55CSTHLGC6Y', 
+      'name': {
+        'given_name': 'John', 
+        'surname': 'Doe'
+      }
+    }
+  }, 
+  'links': [
+    {'href': 'https://api.sandbox.paypal.com/v3/vault/payment-tokens/3pf15469j9969004a', 'rel': 'self', 'method': 'GET', 'encType': 'application/json'}, 
+    {'href': 'https://api.sandbox.paypal.com/v3/vault/payment-tokens/3pf15469j9969004a', 'rel': 'delete', 'method': 'DELETE', 'encType': 'application/json'}
+  ], 
+  'create_time': '2026-10-25T21:15:33.396Z', 
+  'update_time': '2026-10-25T21:15:33.396Z'
+}

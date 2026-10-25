@@ -28,6 +28,9 @@ async def get_access_token():
 
 
 async def generate_paypal_vault_setup_token():
+  """
+  Generates a vault setup token which will be used to setup a vault payment token for automated payment
+  """
   try:
     access_token = await get_access_token()
     if not access_token:
@@ -55,6 +58,7 @@ async def generate_paypal_vault_setup_token():
 
     response.raise_for_status()
     print("PAYPAL API RESPONSE: ", response.json())
+    data = response.json()
 
     # extracting important data from the API response
     payer_action_data = next(
@@ -74,10 +78,49 @@ async def generate_paypal_vault_setup_token():
 
 
 
+async def generate_paypal_vault_payment_token(vault_setup_token_id: str):
+  """
+  Exchange approved setup token for a vault payment token for automated payments
+  """
+  try:
+    access_token = await get_access_token()
+    if not access_token:
+      return None
+    
+    response = requests.post(
+      url=f"{PAYPAL_SANDBOX_API_BASE_URL}/v3/vault/payment-tokens",
+      headers={
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "PayPal-Request-Id": str(uuid.uuid4()),
+      },
+      json={
+        "payment_source": {
+          "token": {
+            "id": vault_setup_token_id, 
+            "type": "SETUP_TOKEN"
+          }
+        }
+      }
+    )
+
+    response.raise_for_status()
+    print("PAYPAL API RESPONSE: ", response.json())
+    data = response.json()
+    vault_payment_token = data["id"]
+    return {
+      "vault_payment_token": vault_payment_token
+    }
+    
+  except Exception as e:
+    logging.error(f"Error generating vault payment token: {e}")
+    return None
 
 
 ##### TESTING SCRIPT ######``
 
 if __name__ == "__main__":
-  generate_vault_setup_token_response = asyncio.run(generate_paypal_vault_setup_token())
+  # generate_vault_setup_token_response = asyncio.run(generate_paypal_vault_setup_token())
+  vault_setup_token = "8J029613N2479672X"
+  paypal_vault_payment_token_response = asyncio.run(generate_paypal_vault_payment_token(vault_setup_token))
 
