@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordBearer
 
@@ -6,7 +7,9 @@ from modules.agent_interface import agent_interface_service
 from modules.agent_interface.dtos.send_penny_message_dto import Send_Penny_Message_Dto
 from database_config import get_db
 from sqlalchemy.orm import Session
-from fastapi import Depends
+from fastapi import Depends, Request
+from fastapi.responses import StreamingResponse
+from utils.sse_management import stream_sse
 
 router = APIRouter(prefix="/agent", tags=["Agent Interface"])
 
@@ -19,3 +22,8 @@ async def chat_with_agent(body: Send_Penny_Message_Dto, token: str = Depends(oau
   return await agent_interface_service.chat_with_agent(
     human_msg=body.message, user_thread_id=user_info.id
   )
+
+
+@router.get("/sse-stream")
+async def sse_stream(request: Request):
+  return await stream_sse(request)

@@ -1,5 +1,6 @@
 import asyncio
 import os
+from typing import Optional
 
 from channel3_sdk import AsyncChannel3
 from dotenv import load_dotenv
@@ -15,23 +16,38 @@ client = AsyncChannel3(
 @tool(description="product search tool with Channel3")
 async def product_search(
 	query: str, 
-	min_price: int = None, 
-	max_price: int = None,
-	gender: str = None,
+	min_price: Optional[int] = None, 
+	max_price: Optional[int] = None,
+	gender: Optional[str] = None,
 ):
-	search_filters = {
-		"price": {"min_price": min_price, "max_price": max_price},
-		"gender": gender
-	}
-	
-	response = await client.products.search(
-		query=query,
-		filters=search_filters
-	)
-	
-	products = []
-	for item in response.items:
-		offers = [
+
+  search_filters = {}
+  price = {}
+
+  if min_price:
+    price["min_price"] = min_price
+  
+  if max_price:
+    price["max_price"] = max_price
+  
+  if price:
+    search_filters["price"] = price
+
+  if gender:
+    search_filters["gender"] = gender
+  
+  # if search filters were provided, do a channel3 search with those filters
+  if search_filters:
+    response = await client.products.search(
+      query=query,
+      filters=search_filters
+    )
+  else:
+    response = await client.products.search(query=query)
+
+  products = []
+  for item in response.items:
+    offers = [
       {
         "retailer": o.domain,
         "price": o.price.price,
@@ -42,7 +58,7 @@ async def product_search(
       }
       for o in item.offers
     ]
-		products.append({
+    products.append({
       "id": item.id,
       "title": item.title,
       "brand": item.brands[0].name if item.brands else None,
@@ -52,9 +68,9 @@ async def product_search(
       "offers": offers,
     })
 	
-	first_five_products = {"products": products[:5]}
-	print(first_five_products)
-	return first_five_products
+  first_five_products = {"products": products[:5]}
+  print(first_five_products)
+  return first_five_products
 
 
 
