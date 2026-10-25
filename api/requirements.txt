@@ -4,9 +4,11 @@ annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
 certifi==2026.10.18
+cffi==2.1.1
 channel3-sdk==4.4.1
 charset-normalizer==3.5.2
 click==8.5.0
+cryptography==50.0.2
 detect-installer==0.2.1
 distro==1.9.0
 dnspython==2.9.0
@@ -62,6 +64,7 @@ psycopg==3.3.6
 psycopg-binary==3.3.6
 psycopg-pool==3.3.3
 pycodestyle==2.15.0
+pycparser==3.12
 pydantic==2.14.1
 pydantic-extra-types==2.11.1
 pydantic-settings==2.16.0
