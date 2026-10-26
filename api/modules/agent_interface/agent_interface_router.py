@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
 from utils.jwt_encode_decode import get_current_user
@@ -7,7 +7,6 @@ from modules.agent_interface import agent_interface_service
 from modules.agent_interface.dtos.send_penny_message_dto import Send_Penny_Message_Dto
 from database_config import get_db
 from sqlalchemy.orm import Session
-from fastapi import Depends, Request
 from fastapi.responses import StreamingResponse
 from utils.sse_management import stream_sse
 

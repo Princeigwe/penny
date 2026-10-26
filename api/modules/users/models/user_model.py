@@ -11,6 +11,8 @@ from database_config import Base
 from ..enums.gender import Gender
 from ..enums.role import Role
 from pydantic import ConfigDict, BaseModel, EmailStr
+from modules.orders.models.order_model import Order
+
 
 from typing import TYPE_CHECKING, List, Optional
 

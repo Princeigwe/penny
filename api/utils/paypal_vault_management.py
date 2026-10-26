@@ -5,7 +5,8 @@ import os
 from dotenv import load_dotenv
 import requests
 import uuid
-from symmetric_encryption import encrypt_data
+from .symmetric_encryption import encrypt_data
+from fastapi import HTTPException, status
 
 load_dotenv(override=True)
 
@@ -58,7 +59,7 @@ async def generate_paypal_vault_setup_token():
     )
 
     response.raise_for_status()
-    print("PAYPAL API RESPONSE: ", response.json())
+    # print("PAYPAL API RESPONSE: ", response.json())
     data = response.json()
 
     # extracting important data from the API response
@@ -73,9 +74,12 @@ async def generate_paypal_vault_setup_token():
       "payer_vault_setup_approval_link": payer_vault_setup_approval_link,
       "vault_setup_token_id": vault_setup_token_id, # this will be used by the frontend to exchange it for a payment token upon successful customer approval
     }
-  except Exception as e:
+  except HTTPException as e:
     logging.error(f"Error generating vault setup token: {e}")
-    return None
+    raise HTTPException(
+      detail="Error generating Paypal vault token",
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
 
 
 
