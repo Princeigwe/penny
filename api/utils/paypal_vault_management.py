@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 import requests
 import uuid
-from utils.symmetric_encryption import encrypt_data, decrypt_data
+from symmetric_encryption import encrypt_data
 
 load_dotenv(override=True)
 
@@ -113,13 +113,44 @@ async def generate_paypal_vault_payment_token(vault_setup_token_id: str):
     # encrypting the vault payment token
     encrypted_vault_payment_token = encrypt_data(vault_payment_token)
     encrypted_vault_payment_token_string = encrypted_vault_payment_token.decode() # converting the encrypted bytes data to string
-    return {
+    computed_response = {
       "encrypted_vault_payment_token_string": encrypted_vault_payment_token_string
     }
-    
+    print("COMPUTED RESPONSE: ", computed_response)
+    return computed_response
   except Exception as e:
     logging.error(f"Error generating vault payment token: {e}")
     return None
+
+
+async def delete_paypal_vault_payment_token(vault_payment_token_id: str):
+  """
+  Delete a vault payment token
+  """
+  try:
+    access_token = await get_access_token()
+    if not access_token:
+      return None
+    
+    response = requests.delete(
+      url=f"{PAYPAL_SANDBOX_API_BASE_URL}/v3/vault/payment-tokens/{vault_payment_token_id}",
+      headers={
+        "Authorization": f"Bearer {access_token}",
+        "PayPal-Request-Id": str(uuid.uuid4()),
+      },
+    )
+
+    response.raise_for_status()
+    computed_response = {
+      "status": "success",
+      "message": "Vault payment token deleted successfully",
+    }
+    print("COMPUTED RESPONSE: ", computed_response)
+    return computed_response
+  except Exception as e:
+    logging.error(f"Error deleting vault payment token: {e}")
+    return None
+
 
 
 ##### TESTING SCRIPT ######``
@@ -127,5 +158,6 @@ async def generate_paypal_vault_payment_token(vault_setup_token_id: str):
 if __name__ == "__main__":
   # generate_vault_setup_token_response = asyncio.run(generate_paypal_vault_setup_token())
   vault_setup_token = "8J029613N2479672X"
-  paypal_vault_payment_token_response = asyncio.run(generate_paypal_vault_payment_token(vault_setup_token))
+  # paypal_vault_payment_token_response = asyncio.run(generate_paypal_vault_payment_token(vault_setup_token))
+  delete_paypal_vault_payment_token_response = asyncio.run(delete_paypal_vault_payment_token(vault_setup_token))
 
