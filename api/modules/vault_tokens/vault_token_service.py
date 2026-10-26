@@ -60,3 +60,20 @@ async def get_user_paypal_vault_token(user_id: str, db: Session = Depends(get_db
   except HTTPException as e:
     logging.error(f"Error getting vault token for user")
     raise e
+
+
+async def delete_user_paypal_vault_token(user_id: str, db: Session = Depends(get_db)):
+  try:
+    vault_token = db.query(Vault_Token).filter(Vault_Token.user_id == user_id).first()
+    if not vault_token:
+      raise HTTPException(detail="Vault not found", status_code=status.HTTP_404_NOT_FOUND)
+    
+    await delete_paypal_vault_payment_token(vault_token.paypal_payment_token)
+    db.delete(vault_token)
+    db.commit()
+    return {
+      "message": "Vault token deleted successfully"
+    }
+  except HTTPException as e:
+    logging.error(f"Error deleting vault token for user")
+    raise e
