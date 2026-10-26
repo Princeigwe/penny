@@ -10,6 +10,7 @@ from utils.paypal_vault_management import (
   generate_paypal_vault_payment_token, 
   delete_paypal_vault_payment_token
 )
+from utils.symmetric_encryption import decrypt_data
 
 
 async def generate_vault_setup_token(user_id: str):
@@ -42,4 +43,20 @@ async def exchange_vault_setup_token_for_vault_payment_token(user_id: str, setup
     return new_vault_token
   except HTTPException as e:
     logging.error(f"Error exchanging vault setup token for vault payment token")
+    raise e
+
+
+async def get_user_paypal_vault_token(user_id: str, db: Session = Depends(get_db)):
+  try:
+    vault_token = db.query(Vault_Token).filter(Vault_Token.user_id == user_id).first()
+    if not vault_token:
+      raise HTTPException(detail="Vault not found", status_code=status.HTTP_404_NOT_FOUND)
+    
+    decrypted_paypal_token = decrypt_data(vault_token.paypal_payment_token)
+    return {
+      "user_id": user_id,
+      "decrypted_paypal_token": decrypted_paypal_token
+    }
+  except HTTPException as e:
+    logging.error(f"Error getting vault token for user")
     raise e

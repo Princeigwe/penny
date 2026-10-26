@@ -26,3 +26,8 @@ async def exchange_vault_setup_token_for_vault_payment_token(
   user_info = await get_current_user(token, db)
   return await vault_token_service.exchange_vault_setup_token_for_vault_payment_token(user_info.id, body.setup_token, db)
 
+
+@router.get("/own")
+async def get_user_paypal_vault_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+  user_info = await get_current_user(token, db)
+  return await vault_token_service.get_user_paypal_vault_token(user_info.id, db)
