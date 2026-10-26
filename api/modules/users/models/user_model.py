@@ -12,10 +12,11 @@ from ..enums.gender import Gender
 from ..enums.role import Role
 from pydantic import ConfigDict, BaseModel, EmailStr
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
   from modules.orders.models.order_model import Order
+  from modules.vault_tokens.models.vault_token_model import Vault_Token
 
 class User(Base):
   __tablename__ = "users"
@@ -34,6 +35,7 @@ class User(Base):
   
   # relationships
   orders: Mapped[List["Order"]] = relationship("Order", back_populates="user", cascade="all, delete-orphan")
+  vault_token: Mapped[Optional["Vault_Token"]] = relationship("Vault_Token", back_populates="user", cascade="all, delete-orphan")
 
 
 
