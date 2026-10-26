@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 import requests
 import uuid
+from utils.symmetric_encryption import encrypt_data, decrypt_data
 
 load_dotenv(override=True)
 
@@ -108,8 +109,12 @@ async def generate_paypal_vault_payment_token(vault_setup_token_id: str):
     print("PAYPAL API RESPONSE: ", response.json())
     data = response.json()
     vault_payment_token = data["id"]
+
+    # encrypting the vault payment token
+    encrypted_vault_payment_token = encrypt_data(vault_payment_token)
+    encrypted_vault_payment_token_string = encrypted_vault_payment_token.decode() # converting the encrypted bytes data to string
     return {
-      "vault_payment_token": vault_payment_token
+      "encrypted_vault_payment_token_string": encrypted_vault_payment_token_string
     }
     
   except Exception as e:
