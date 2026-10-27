@@ -30,11 +30,13 @@ from ..templates.system_intro_template import template as system_intro_template
 from ..templates.product_search_request_template import template as product_search_request_template
 from ..templates.product_search_response_template import template as product_search_response_template
 from ..templates.order_items_aggregator_template import template as order_items_aggregator_template
+from ..templates.create_order_template import template as create_order_template
+from ..templates.auto_payment_capture_template import template as auto_payment_capture_template
+
 from ..tools.channel3_tools import product_search
-from ..tools.paypal_tools import create_order, vault_payment_token_exists
+from ..tools.paypal_tools import create_order, vault_payment_token_exists, auto_create_order_and_capture_payment
 from ..tools.auth_tools import generate_agent_access_token
 from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists
-from ..templates.create_order_template import template as create_order_template
 
 from modules.orders.dtos.order_items_dto import OrderItemsDto
 from utils.sse_management import publish_sse
@@ -80,7 +82,7 @@ class State(TypedDict):
   total_price: float | None = None
   currency: str | None = None
   paypal_vault_payment_token_exists: bool = False
-  
+  auto_payment_capture_status: str | None = None
 
 
 class ConfigSchema(TypedDict):
@@ -325,12 +327,52 @@ async def order_create_agent(state: State):
   return {"messages": [llm_response], "order_id": order_id}
 
 
+auto_order_and_payment_tool_node = ToolNode(tools=[auto_create_order_and_capture_payment])
 async def auto_capture_paypal_order_agent(state: State):
   """
   This agent is responsible for full autonomy of auto-capturing payments for paypal orders.
   It is only operational with the user's Paypal payment token obtained after approval
   """
-  pass
+  user_id = state["user_id"]
+  dummy_ai_message = AIMessage(
+    content="",
+    tool_calls = [
+      ToolCall(
+        name="auto_create_order_and_capture_payment",
+        args={
+          "user_id":str(user_id),
+          "amount": state["total_price"]
+        },
+        id="call_5"
+      )
+    ]
+  )
+  tool_result = await auto_order_and_payment_tool_node.ainvoke([dummy_ai_message])
+  tool_message = tool_result[0]
+  print("tool_message", tool_message)
+  payload_response = json.loads(tool_message.content)
+  status = payload_response["status"]
+  logging.info(
+    f"Agentic Workflow: State Graph: computed auto capture paypal order agent response {status}"
+  )
+
+  auto_payment_capture_prompt = PromptTemplate.from_template(
+    template=auto_payment_capture_template
+  )
+  formatted_prompt = auto_payment_capture_prompt.format(
+    capture_result=payload_response,
+    order_items=state["order_items"],
+    total_price=state["total_price"],
+    currency=state["currency"]
+  )
+
+  llm_response = llm.invoke(formatted_prompt)
+
+  return{
+    "auto_payment_capture_status": status,
+    "messages": [llm_response]
+  }
+
 
 
 state_workflow.add_node("coordinator_agent", coordinator_agent)
@@ -353,6 +395,7 @@ state_workflow.add_node(
 state_workflow.add_node(
   "order_create_agent", order_create_agent
 )
+state_workflow.add_node("auto_capture_paypal_order_agent", auto_capture_paypal_order_agent)
 
 
 def coordinator_agent_condition(state: State):
@@ -371,6 +414,14 @@ def coordinator_agent_condition(state: State):
     return "order_items_aggregate_agent"
 
 
+def autonomous_payment_condition(state: State):
+  paypal_vault_payment_token_exists = state["paypal_vault_payment_token_exists"]
+  if paypal_vault_payment_token_exists:
+    return "auto_capture_paypal_order_agent"
+  else:
+    return "order_create_agent"
+
+
 state_workflow.add_edge(START, "coordinator_agent")
 state_workflow.add_conditional_edges("coordinator_agent", coordinator_agent_condition)
 state_workflow.add_edge("system_enquiry_agent", END)
@@ -382,7 +433,10 @@ state_workflow.add_edge("e_commerce_web_product_search_agent", END)
 # state_workflow.add_edge("order_items_aggregate_agent", "order_create_agent")
 # state_workflow.add_edge("order_create_agent", END)
 state_workflow.add_edge("order_items_aggregate_agent", "auto_payment_decision_agent")
-state_workflow.add_edge("auto_payment_decision_agent", END)
+state_workflow.add_conditional_edges("auto_payment_decision_agent", autonomous_payment_condition)
+state_workflow.add_edge("auto_capture_paypal_order_agent", END)
+state_workflow.add_edge("order_create_agent", END)
+
 
 
 async def state_run(human_msg: str, user_thread_id: str):

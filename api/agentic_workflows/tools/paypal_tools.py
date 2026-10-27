@@ -12,7 +12,7 @@ from database_config import SessionLocal
 from sqlalchemy.orm import Session
 from typing import TYPE_CHECKING
 from .auth_tools import generate_agent_access_token
-from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists
+from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists, agent_get_user_payment_token
 
 # if TYPE_CHECKING:
 
@@ -112,8 +112,15 @@ async def capture_order(order_id: str):
       "Content-Type": "application/json",
     },
   )
-  response.raise_for_status()
-  print("PAYPAL API RESPONSE: ", response.json())
+  # response.raise_for_status()
+  if not response.ok:
+    print("PAYPAL ERROR:", response.status_code, response.text)
+    # raise Exception(f"Failed to capture order: {response.status_code} - {response.text}")
+    return{
+      "status": "error",
+      "message": f"Failed to capture order: {response.status_code} - {response.text}"
+    }
+  print("PAYPAL CAPTURE PAYMENT API RESPONSE: ", response.json())
   return response.json()
 
 
@@ -127,11 +134,47 @@ async def vault_payment_token_exists(user_id: str):
 
 
 
+# @tool(description="Get vault payment token")
+async def get_vault_payment_token(user_id: str):
+  system_access_token = await generate_agent_access_token()
+  with SessionLocal() as db:
+    result = await agent_get_user_payment_token(user_id, system_access_token, db)
+    print("result", result)
+    return result
+
+
+@tool(description="Auto-capture payment on auto-created order")
+async def auto_create_order_and_capture_payment(user_id: str, amount: float):
+  """This function creates an order and captures payment in one go, using the PayPal API"""
+  vault_payment_token = await get_vault_payment_token(user_id)
+  paypal_access_token = await get_access_token()
+
+  response = requests.post(
+    url=f"{PAYPAL_SANDBOX_API_BASE_URL}/v2/checkout/orders",
+    headers={
+      "Authorization": f"Bearer {paypal_access_token}",
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": str(uuid.uuid4()),  # idempotency key
+    },
+    json={
+      "intent": "CAPTURE",
+      "purchase_units": [{"amount": {"currency_code": "USD", "value": amount}}],
+      "payment_source": {"paypal": {"vault_id": vault_payment_token}},
+    }
+  )
+  response.raise_for_status()
+  print("PAYPAL ORDER API RESPONSE: ", response.json())
+  create_order_data = response.json()
+  return create_order_data
+
+
 ###### TESTING SCRIPT ######``
 
 # if __name__ == "__main__":
-#   asyncio.run(payment_token_exists("456719b0-c7d1-41c2-a114-c484393d81de"))
-#   create_order_response = asyncio.run(create_order(100))
+#   # asyncio.run(get_vault_payment_token("456719b0-c7d1-41c2-a114-c484393d81de"))
+#   # create_order_response = asyncio.run(create_order(100))
+#   order_id = "6WD412855K764362A"
+#   asyncio.run(capture_order(order_id))
 
 #   input("Press Enter after approving the payment...")
 #   response_order_id = create_order_response["order_id"]

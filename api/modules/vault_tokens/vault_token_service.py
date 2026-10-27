@@ -69,6 +69,21 @@ async def agent_check_user_payment_token_exists(
     raise e
 
 
+async def agent_get_user_payment_token(
+  user_id: str, 
+  agent_access_token: str,
+  db: Session
+):
+  try:
+    await decode_agent_access_token(agent_access_token)
+    vault_token = await get_user_paypal_vault_token(user_id, db)
+    payment_token = vault_token["decrypted_paypal_token"]
+    return payment_token
+  except Exception as e:
+    logging.error(f"Error getting user payment token")
+    raise e
+
+
 async def get_user_paypal_vault_token(user_id: str, db: Session = Depends(get_db)):
   try:
     vault_token = db.query(Vault_Token).filter(Vault_Token.user_id == user_id).first()
