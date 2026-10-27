@@ -31,11 +31,22 @@ from ..templates.product_search_request_template import template as product_sear
 from ..templates.product_search_response_template import template as product_search_response_template
 from ..templates.order_items_aggregator_template import template as order_items_aggregator_template
 from ..tools.channel3_tools import product_search
-from ..tools.paypal_tools import create_order
+from ..tools.paypal_tools import create_order, vault_payment_token_exists
+from ..tools.auth_tools import generate_agent_access_token
+from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists
 from ..templates.create_order_template import template as create_order_template
 
 from modules.orders.dtos.order_items_dto import OrderItemsDto
 from utils.sse_management import publish_sse
+
+from typing import TYPE_CHECKING
+
+# if TYPE_CHECKING:
+  # from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists
+  # from ..tools.paypal_tools import create_order, vault_payment_token_exists
+  # from ..tools.auth_tools import generate_agent_access_token
+
+
 
 
 POSTGRES_USER = os.environ.get("DB_USERNAME")
@@ -68,6 +79,7 @@ class State(TypedDict):
   order_items: OrderItemsDto | None = None
   total_price: float | None = None
   currency: str | None = None
+  paypal_vault_payment_token_exists: bool = False
   
 
 
@@ -158,7 +170,7 @@ async def search_product_response_agent(state: State):
           "max_price": state["max_price"],
           "gender": state["gender"],
         },
-        id="call_1"
+        id="call_2"
       )
     ]
   )
@@ -225,6 +237,40 @@ def order_items_aggregate_agent(state: State):
   }
 
 
+# access_token_generator_tool_node = ToolNode(tools=[generate_agent_access_token])
+vault_payment_token_checker_tool_node = ToolNode(tools=[vault_payment_token_exists])
+async def auto_payment_decision_agent(state: State):
+  """
+  This agent is responsible for deciding whether to proceed with auto-payment or not.
+  """
+  user_id = state["user_id"]
+  print("state user_id", str(user_id))
+  dummy_ai_message = AIMessage(
+    content="",
+    tool_calls = [
+      ToolCall(
+        name="vault_payment_token_exists",
+        args={
+          "user_id":str(user_id)
+        },
+        id="call_4"
+      )
+    ]
+  )
+
+  # agent_access_token_result = await access_token_generator_tool_node.ainvoke([dummy_ai_message])
+  # tool_message = agent_access_token_result[0]
+  # agent_access_token = tool_message.content
+
+  vault_payment_token_exists_result = await vault_payment_token_checker_tool_node.ainvoke([dummy_ai_message])
+  tool_message = vault_payment_token_exists_result[0]
+  payment_token_exists = tool_message.content
+
+  logging.info(f"Agentic Workflow: State Graph: computed auto payment decision agent response :{payment_token_exists}")
+  return {"paypal_vault_payment_token_exists": payment_token_exists}
+
+
+
 paypal_create_order_tool_node = ToolNode(tools=[create_order])
 async def order_create_agent(state: State):
   """
@@ -277,7 +323,14 @@ async def order_create_agent(state: State):
   )
 
   return {"messages": [llm_response], "order_id": order_id}
-  
+
+
+async def auto_capture_paypal_order_agent(state: State):
+  """
+  This agent is responsible for full autonomy of auto-capturing payments for paypal orders.
+  It is only operational with the user's Paypal payment token obtained after approval
+  """
+  pass
 
 
 state_workflow.add_node("coordinator_agent", coordinator_agent)
@@ -295,24 +348,27 @@ state_workflow.add_node(
   "order_items_aggregate_agent", order_items_aggregate_agent
 )
 state_workflow.add_node(
+  "auto_payment_decision_agent", auto_payment_decision_agent
+)
+state_workflow.add_node(
   "order_create_agent", order_create_agent
 )
 
 
 def coordinator_agent_condition(state: State):
-    coordinating_intent = state["intent"]
-    if coordinating_intent == User_Intent.SYSTEM_ENQUIRY:
-        return "system_enquiry_agent"
-    elif coordinating_intent == User_Intent.PRODUCT_SEARCH:
-        return "search_product_request_agent"
-    elif coordinating_intent == User_Intent.PRODUCT_IMAGE_SEARCH:
-        return "search_product_with_image_agent"
-    elif coordinating_intent == User_Intent.PRODUCT_URL_LOOKUP:
-        return "product_url_lookup_agent"
-    elif coordinating_intent == User_Intent.E_COMMERCE_PRODUCT_SEARCH:
-        return "e_commerce_web_product_search_agent"
-    else:
-        return "order_items_aggregate_agent"
+  coordinating_intent = state["intent"]
+  if coordinating_intent == User_Intent.SYSTEM_ENQUIRY:
+    return "system_enquiry_agent"
+  elif coordinating_intent == User_Intent.PRODUCT_SEARCH:
+    return "search_product_request_agent"
+  elif coordinating_intent == User_Intent.PRODUCT_IMAGE_SEARCH:
+    return "search_product_with_image_agent"
+  elif coordinating_intent == User_Intent.PRODUCT_URL_LOOKUP:
+    return "product_url_lookup_agent"
+  elif coordinating_intent == User_Intent.E_COMMERCE_PRODUCT_SEARCH:
+    return "e_commerce_web_product_search_agent"
+  else:
+    return "order_items_aggregate_agent"
 
 
 state_workflow.add_edge(START, "coordinator_agent")
@@ -323,8 +379,10 @@ state_workflow.add_edge("search_product_response_agent", END)
 state_workflow.add_edge("search_product_with_image_agent", END)
 state_workflow.add_edge("product_url_lookup_agent", END)
 state_workflow.add_edge("e_commerce_web_product_search_agent", END)
-state_workflow.add_edge("order_items_aggregate_agent", "order_create_agent")
-state_workflow.add_edge("order_create_agent", END)
+# state_workflow.add_edge("order_items_aggregate_agent", "order_create_agent")
+# state_workflow.add_edge("order_create_agent", END)
+state_workflow.add_edge("order_items_aggregate_agent", "auto_payment_decision_agent")
+state_workflow.add_edge("auto_payment_decision_agent", END)
 
 
 async def state_run(human_msg: str, user_thread_id: str):

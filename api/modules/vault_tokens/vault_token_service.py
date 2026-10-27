@@ -11,6 +11,8 @@ from utils.paypal_vault_management import (
   delete_paypal_vault_payment_token
 )
 from utils.symmetric_encryption import decrypt_data
+from sqlalchemy import exists, select
+from agentic_workflows.tools.auth_tools import decode_agent_access_token
 
 
 async def generate_vault_setup_token(user_id: str):
@@ -43,6 +45,27 @@ async def exchange_vault_setup_token_for_vault_payment_token(user_id: str, setup
     return new_vault_token
   except HTTPException as e:
     logging.error(f"Error exchanging vault setup token for vault payment token")
+    raise e
+
+
+async def agent_check_user_payment_token_exists(
+  user_id: str, 
+  agent_access_token: str,
+  db: Session
+):
+  """
+  This will be use internally by Penny agent to see if a user has an approved
+  Paypal payment token, in order to determine full autonomous order payment or not
+  """
+
+  try:
+    await decode_agent_access_token(agent_access_token)
+    vault_token = db.query(Vault_Token).filter(Vault_Token.user_id == user_id).first()
+    if vault_token:
+      return True
+    return False
+  except Exception as e:
+    logging.error(f"Error checking if user payment token exists")
     raise e
 
 

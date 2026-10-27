@@ -7,11 +7,21 @@ from langchain_core.tools import tool
 import requests
 import uuid
 
+from fastapi import Depends
+from database_config import SessionLocal
+from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING
+from .auth_tools import generate_agent_access_token
+from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists
+
+# if TYPE_CHECKING:
+
 load_dotenv(override=True)
 
 PAYPAL_SANDBOX_CLIENT_ID=os.environ.get("PAYPAL_BUSINESS_SANDBOX_CLIENT_ID")
 PAYPAL_SANDBOX_SECRET=os.environ.get("PAYPAL_BUSINESS_SANDBOX_SECRET_KEY")
 PAYPAL_SANDBOX_API_BASE_URL="https://api-m.sandbox.paypal.com"
+
 
 async def get_access_token():
   try:
@@ -106,9 +116,21 @@ async def capture_order(order_id: str):
   print("PAYPAL API RESPONSE: ", response.json())
   return response.json()
 
+
+
+@tool(description="Paypal vault payment token checker")
+async def vault_payment_token_exists(user_id: str):
+  access_token = await generate_agent_access_token()
+  with SessionLocal() as db:
+    result =  await agent_check_user_payment_token_exists(user_id, access_token, db)
+    return result
+
+
+
 ###### TESTING SCRIPT ######``
 
 # if __name__ == "__main__":
+#   asyncio.run(payment_token_exists("456719b0-c7d1-41c2-a114-c484393d81de"))
 #   create_order_response = asyncio.run(create_order(100))
 
 #   input("Press Enter after approving the payment...")
