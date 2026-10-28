@@ -7,11 +7,11 @@ class OrderItemDto(BaseModel):
   unit_price: Decimal = Field(..., description="Unit price of the product")
 
   def to_dict(self) -> dict:
-    return self.dict()
+    return self.model_dump()
 
 
 class OrderItemsDto(BaseModel):
   order_items: list[OrderItemDto] = Field(..., description="List of order items", min_length=1)
 
   def to_dict(self) -> dict:
-    return self.dict()
+    return self.model_dump()
