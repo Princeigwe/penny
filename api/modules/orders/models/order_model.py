@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, ForeignKey
+from sqlalchemy import Column, DateTime, Float, Integer, String, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,7 +18,7 @@ class Order(Base):
   id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
   paid_amount: Mapped[float] = mapped_column(Float, nullable=False)
   paypal_order_id: Mapped[str] = mapped_column(String(100), nullable=False)
-  encrypted_paypal_payment_token: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+  is_autonomous: Mapped[bool] = mapped_column(Boolean,  default=False) ## his field indicates whether the order was created autonomously by an agent or manually by the user
   created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
   
 
