@@ -9,7 +9,6 @@ import uuid
 
 from fastapi import Depends
 from database_config import SessionLocal
-from sqlalchemy.orm import Session
 from typing import TYPE_CHECKING
 from .auth_tools import generate_agent_access_token
 from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists, agent_get_user_payment_token

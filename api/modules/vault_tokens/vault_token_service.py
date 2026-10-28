@@ -11,7 +11,7 @@ from utils.paypal_vault_management import (
   delete_paypal_vault_payment_token
 )
 from utils.symmetric_encryption import decrypt_data
-from sqlalchemy import exists, select
+
 from agentic_workflows.tools.auth_tools import decode_agent_access_token
 
 

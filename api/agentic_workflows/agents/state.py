@@ -35,8 +35,7 @@ from ..templates.auto_payment_capture_template import template as auto_payment_c
 
 from ..tools.channel3_tools import product_search
 from ..tools.paypal_tools import create_order, vault_payment_token_exists, auto_create_order_and_capture_payment
-from ..tools.auth_tools import generate_agent_access_token
-from modules.vault_tokens.vault_token_service import agent_check_user_payment_token_exists
+from ..tools.system_order_tools import settle_order
 
 from modules.orders.dtos.order_items_dto import OrderItemsDto
 from utils.sse_management import publish_sse
@@ -328,6 +327,7 @@ async def order_create_agent(state: State):
 
 
 auto_order_and_payment_tool_node = ToolNode(tools=[auto_create_order_and_capture_payment])
+settle_order_tool_node = ToolNode(tools=[settle_order])
 async def auto_capture_paypal_order_agent(state: State):
   """
   This agent is responsible for full autonomy of auto-capturing payments for paypal orders.
@@ -347,14 +347,37 @@ async def auto_capture_paypal_order_agent(state: State):
       )
     ]
   )
-  tool_result = await auto_order_and_payment_tool_node.ainvoke([dummy_ai_message])
-  tool_message = tool_result[0]
-  print("tool_message", tool_message)
-  payload_response = json.loads(tool_message.content)
+
+  dummy_ai_message_settle_order = AIMessage(
+    content="",
+    tool_calls = [
+      ToolCall(
+        name="settle_order",
+        args={
+          "user_id":str(user_id),
+          "paid_amount": state["total_price"],
+          "paypal_order_id": state["order_id"],
+          "order_items": state["order_items"]
+        },
+        id="call_6"
+      )
+    ]
+  )
+
+
+  auto_payment_tool_result = await auto_order_and_payment_tool_node.ainvoke([dummy_ai_message])
+  auto_payment_tool_message = auto_payment_tool_result[0]
+  print("tool_message", auto_payment_tool_message)
+  payload_response = json.loads(auto_payment_tool_message.content)
   status = payload_response["status"]
   logging.info(
     f"Agentic Workflow: State Graph: computed auto capture paypal order agent response {status}"
   )
+
+  # settle order on the system's database
+  settle_order_tool_result = await settle_order_tool_node.ainvoke([dummy_ai_message_settle_order])
+  settle_order_tool_message = settle_order_tool_result[0]
+  print("settle_order_tool_message", settle_order_tool_message)
 
   auto_payment_capture_prompt = PromptTemplate.from_template(
     template=auto_payment_capture_template
