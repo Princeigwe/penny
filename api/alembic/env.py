@@ -8,6 +8,9 @@ load_dotenv()
 from alembic import context
 from database_config import DATABASE_URL, Base
 from modules.users.models.user_model import User
+from modules.orders.models.order_model import Order
+from modules.orders.models.order_item_model import Order_Item
+from modules.vault_tokens.models.vault_token_model import Vault_Token
 
 
 

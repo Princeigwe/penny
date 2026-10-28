@@ -1,0 +1,24 @@
+{
+  'id': '8J029613N2479672X', 
+  'customer': {'id': 'UZpPAmYphs'}, 
+  'status': 'PAYER_ACTION_REQUIRED', 
+  'payment_source': {
+    'paypal': {
+      'usage_type': 'MERCHANT'
+    }
+  }, 
+  'links': [
+    {
+      'href': 'https://api.sandbox.paypal.com/v3/vault/setup-tokens/8J029613N2479672X', 
+      'rel': 'self', 
+      'method': 'GET', 
+      'encType': 'application/json'
+    }, 
+    {
+      'href': 'https://www.sandbox.paypal.com/agreements/approve?approval_session_id=8J029613N2479672X', 
+      'rel': 'approve', 
+      'method': 'GET', 
+      'encType': 'application/json'
+    }
+  ]
+}

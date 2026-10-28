@@ -4,7 +4,6 @@ import jwt
 from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
-from modules.users.user_service import get_user_by_email
 from database_config import get_db
 from sqlalchemy.orm import Session
 from fastapi import Depends
@@ -25,6 +24,8 @@ async def create_access_token(payload: dict):
 
 
 async def decode_token(token: str):
+  # lower level function should not import higher level function and module-level importation
+  from modules.users.user_service import get_user_by_email ## this was fix for circular dependency
   try:
     payload = jwt.decode(token, key=SECRET_KEY, algorithms=ALGORITHM)
     return payload
@@ -36,6 +37,8 @@ async def decode_token(token: str):
 
 
 async def get_current_user(token: str, db: Session = Depends(get_db)):
+  # lower level function should not import higher level function and module-level importation
+  from modules.users.user_service import get_user_by_email ## this was fix for circular dependency
   try:
     user_info = await decode_token(token)
     user = await get_user_by_email(email=user_info["email"], db=db)

@@ -36,7 +36,10 @@ async def create_user(
     db.commit()
     return new_user
   except HTTPException as e:
-    print(e)
+    raise HTTPException(
+      detail="Error creating user",
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
 
 
 async def get_user_by_email(email: str, db: Session = Depends(get_db)):

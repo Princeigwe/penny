@@ -1,0 +1,117 @@
+import logging
+
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from database_config import get_db
+from .models.vault_token_model import Vault_Token
+from utils.paypal_vault_management import (
+  generate_paypal_vault_setup_token, 
+  generate_paypal_vault_payment_token, 
+  delete_paypal_vault_payment_token
+)
+from utils.symmetric_encryption import decrypt_data
+
+from agentic_workflows.tools.auth_tools import decode_agent_access_token
+
+
+async def generate_vault_setup_token(user_id: str):
+  """
+  This is responsible for generating a Paypal vault setup token
+  which will be exchanged for a payment token for auto-payment of orders 
+  """
+  try:
+    paypal_response = await generate_paypal_vault_setup_token()
+    return {
+      "user_id": user_id,
+      "paypal_response": paypal_response
+    }
+  except HTTPException as e:
+    logging.error(f"Error generating PayPal vault setup token")
+    raise e
+
+
+async def exchange_vault_setup_token_for_vault_payment_token(user_id: str, setup_token: str, db: Session = Depends(get_db)):
+  try:
+    paypal_response = await generate_paypal_vault_payment_token(setup_token)
+    encrypted_paypal_vault_token = paypal_response["encrypted_vault_payment_token_string"]
+    new_vault_token = Vault_Token(
+      user_id=user_id,
+      paypal_payment_token=encrypted_paypal_vault_token
+    )
+    
+    db.add(new_vault_token)
+    db.commit()
+    return new_vault_token
+  except HTTPException as e:
+    logging.error(f"Error exchanging vault setup token for vault payment token")
+    raise e
+
+
+async def agent_check_user_payment_token_exists(
+  user_id: str, 
+  agent_access_token: str,
+  db: Session
+):
+  """
+  This will be use internally by Penny agent to see if a user has an approved
+  Paypal payment token, in order to determine full autonomous order payment or not
+  """
+
+  try:
+    await decode_agent_access_token(agent_access_token)
+    vault_token = db.query(Vault_Token).filter(Vault_Token.user_id == user_id).first()
+    if vault_token:
+      return True
+    return False
+  except Exception as e:
+    logging.error(f"Error checking if user payment token exists")
+    raise e
+
+
+async def agent_get_user_payment_token(
+  user_id: str, 
+  agent_access_token: str,
+  db: Session
+):
+  try:
+    await decode_agent_access_token(agent_access_token)
+    vault_token = await get_user_paypal_vault_token(user_id, db)
+    payment_token = vault_token["decrypted_paypal_token"]
+    return payment_token
+  except Exception as e:
+    logging.error(f"Error getting user payment token")
+    raise e
+
+
+async def get_user_paypal_vault_token(user_id: str, db: Session = Depends(get_db)):
+  try:
+    vault_token = db.query(Vault_Token).filter(Vault_Token.user_id == user_id).first()
+    if not vault_token:
+      raise HTTPException(detail="Vault not found", status_code=status.HTTP_404_NOT_FOUND)
+    
+    decrypted_paypal_token = decrypt_data(vault_token.paypal_payment_token)
+    return {
+      "user_id": user_id,
+      "decrypted_paypal_token": decrypted_paypal_token
+    }
+  except HTTPException as e:
+    logging.error(f"Error getting vault token for user")
+    raise e
+
+
+async def delete_user_paypal_vault_token(user_id: str, db: Session = Depends(get_db)):
+  try:
+    vault_token = db.query(Vault_Token).filter(Vault_Token.user_id == user_id).first()
+    if not vault_token:
+      raise HTTPException(detail="Vault not found", status_code=status.HTTP_404_NOT_FOUND)
+    
+    await delete_paypal_vault_payment_token(vault_token.paypal_payment_token)
+    db.delete(vault_token)
+    db.commit()
+    return {
+      "message": "Vault token deleted successfully"
+    }
+  except HTTPException as e:
+    logging.error(f"Error deleting vault token for user")
+    raise e
