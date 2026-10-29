@@ -59,6 +59,8 @@ async def authenticate_user(email: str, password: str, db: Session = Depends(get
     logging.error(f"Error in user authentication: {e}")
     if e.status_code == status.HTTP_401_UNAUTHORIZED:
       raise e
+    if e.status_code == status.HTTP_404_NOT_FOUND:
+      raise HTTPException("Invalid credentials", status_code=status.HTTP_401_UNAUTHORIZED)
     raise HTTPException(
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       detail="Failed to authenticate user",
