@@ -9,7 +9,7 @@ jobs:
     steps:
       - checkout
       - python/install-packages:
-          pip-dependency-file: requirements.txt
+          pip-dependency-file: api/requirements.txt
           pkg-manager: pip
   
 
