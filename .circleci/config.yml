@@ -8,9 +8,17 @@ jobs:
     executor: python/default
     steps:
       - checkout
-      - python/install-packages:
-          pip-dependency-file: api/requirements.txt
-          pkg-manager: pip
+      - run:
+          name: Install Python dependencies
+          command: |
+            cd api
+            python -m venv env
+            source env/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+      # - python/install-packages:
+      #     pip-dependency-file: api/requirements.txt
+      #     pkg-manager: pip
   
 
   build-and-deploy-image:
