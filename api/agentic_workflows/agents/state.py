@@ -32,9 +32,10 @@ from ..templates.product_search_response_template import template as product_sea
 from ..templates.order_items_aggregator_template import template as order_items_aggregator_template
 from ..templates.create_order_template import template as create_order_template
 from ..templates.auto_payment_capture_template import template as auto_payment_capture_template
+from ..templates.manual_capture_order_template import template as manual_capture_order_template
 
 from ..tools.channel3_tools import product_search
-from ..tools.paypal_tools import create_order, vault_payment_token_exists, auto_create_order_and_capture_payment
+from ..tools.paypal_tools import create_order, vault_payment_token_exists, auto_create_order_and_capture_payment, capture_order
 from ..tools.system_order_tools import settle_order
 
 from modules.orders.dtos.order_items_dto import OrderItemsDto
@@ -398,11 +399,26 @@ async def auto_capture_paypal_order_agent(state: State):
   }
 
 
+capture_order_tool_node = ToolNode(tools=[capture_order])
 async def manual_capture_order_agent(state: State):
   """
   This agent is responsible for manually capturing payments and settling created orders on the system's database.
   """
   user_id = state["user_id"]
+  order_id = state["order_id"]
+  dummy_ai_message_capture_order = AIMessage(
+    content="",
+    tool_calls = [
+      ToolCall(
+        name="capture_order",
+        args={
+          "order_id":str(order_id),
+        },
+        id="call_8"
+      )
+    ]
+  )
+
   dummy_ai_message_settle_order = AIMessage(
     content="",
     tool_calls = [
@@ -415,11 +431,43 @@ async def manual_capture_order_agent(state: State):
           "order_items": state["order_items"],
           "is_autonomous": False
         },
-        id="call_7"
+        id="call_9"
       )
     ]
   )
+  capture_order_tool_result = await capture_order_tool_node.ainvoke([dummy_ai_message_capture_order])
+  capture_order_tool_message = capture_order_tool_result[0]
 
+  print("capture_order_tool_message", capture_order_tool_message)
+  payload_response = json.loads(capture_order_tool_message.content)
+
+  logging.info(
+      f"Agentic Workflow: State Graph: computed auto manual capture order agent response {payload_response}"
+  )
+
+  if payload_response["status"] == "COMPLETED":
+    # settle order on the system's database
+    settle_order_tool_result = await settle_order_tool_node.ainvoke([dummy_ai_message_settle_order])
+    settle_order_tool_message = settle_order_tool_result[0]
+    print("settle_order_tool_message", settle_order_tool_message)
+
+
+  manual_capture_order_prompt = PromptTemplate.from_template(
+    template=manual_capture_order_template,
+  )
+  last_human_message=state["messages"][-1].content
+  formatted_prompt = manual_capture_order_prompt.format(
+    capture_order_response=payload_response,
+    query=last_human_message,
+    order_items=state["order_items"],
+    total_price=state["total_price"],
+    currency=state["currency"]
+  )
+
+  llm_response = llm.invoke(formatted_prompt)
+  return{
+    "messages": [llm_response]
+  }
 
 
 
@@ -445,7 +493,7 @@ state_workflow.add_node(
   "order_create_agent", order_create_agent
 )
 state_workflow.add_node("auto_capture_paypal_order_agent", auto_capture_paypal_order_agent)
-
+state_workflow.add_node("manual_capture_order_agent", manual_capture_order_agent)
 
 def coordinator_agent_condition(state: State):
   coordinating_intent = state["intent"]
@@ -459,6 +507,8 @@ def coordinator_agent_condition(state: State):
     return "product_url_lookup_agent"
   elif coordinating_intent == User_Intent.E_COMMERCE_PRODUCT_SEARCH:
     return "e_commerce_web_product_search_agent"
+  elif coordinating_intent == User_Intent.ORDER_PAYMENT_CAPTURE:
+    return "manual_capture_order_agent"
   else:
     return "order_items_aggregate_agent"
 
@@ -501,6 +551,7 @@ state_workflow.add_edge("order_items_aggregate_agent", "auto_payment_decision_ag
 state_workflow.add_conditional_edges("auto_payment_decision_agent", autonomous_payment_condition)
 state_workflow.add_edge("auto_capture_paypal_order_agent", END)
 state_workflow.add_edge("order_create_agent", END)
+state_workflow.add_edge("manual_capture_order_agent", END)
 
 
 
