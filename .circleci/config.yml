@@ -1,0 +1,43 @@
+version: 2.1
+orbs:
+  python: circleci/python@3.1.0
+
+jobs:
+  
+  install-python-dependencies:
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pip-dependency-file: requirements.txt
+          pkg-manager: pip
+  
+
+  build-and-deploy-image:
+    docker:
+      - image: cimg/python:3.12.1
+        auth:
+          username: $DOCKER_USERNAME
+          password: $DOCKER_PASSWORD
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Build and Push Docker image
+          command: |
+            cd api
+            docker build -t $DOCKER_USERNAME/penny:latest .
+            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD docker.io
+            docker push $DOCKER_USERNAME/penny:latest
+
+
+workflows:
+  api-deploy:
+    jobs:
+      - install-python-dependencies
+      - build-and-deploy-image:
+          requires:
+            - install-python-dependencies
+          context: DOCKERHUB_AUTH
+          filters: pipeline.git.branch == "api-deploy" # run the build-and-deploy-image job when action is triggered on the api-deploy branch
