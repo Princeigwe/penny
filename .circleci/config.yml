@@ -5,7 +5,8 @@ orbs:
 jobs:
   
   install-python-dependencies:
-    executor: python/default
+    docker:
+      - image: cimg/python:3.12.1
     steps:
       - checkout
       - run:
