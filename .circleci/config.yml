@@ -1,6 +1,5 @@
 version: 2.1
-orbs:
-  python: circleci/python@3.1.0
+
 
 jobs:
   
@@ -51,4 +50,6 @@ workflows:
             - install-python-dependencies
           context: 
             - DOCKERHUB_AUTH
-          filters: pipeline.git.branch == "api-deploy" # run the build-and-deploy-image job when action is triggered on the api-deploy branch
+          filters:
+            branches:
+              only: api-deploy # run the build-and-deploy-image job when action is triggered on the api-deploy branch
