@@ -1,3 +1,4 @@
+import logging
 from agentic_workflows.ai_layer import ai
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
