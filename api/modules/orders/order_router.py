@@ -18,3 +18,7 @@ async def get_own_orders(token: str = Depends(oauth2_scheme), db: Session = Depe
   return await order_service.get_own_orders(user_info.id, db)
 
 
+@router.get("/own/{order_id}")
+async def get_own_order_by_id(order_id: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+  user_info = await get_current_user(token, db)
+  return await order_service.get_own_order_by_id(user_info.id, order_id, db)

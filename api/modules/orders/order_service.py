@@ -94,3 +94,19 @@ async def get_own_orders(user_id: str, db: Session = Depends(get_db)) -> Page[Or
   except HTTPException as e:
     logging.error(f"Error fetching own orders")
     raise e
+
+
+async def get_own_order_by_id(user_id: str, order_id: str, db: Session = Depends(get_db)) -> Order_Dto:
+  try:
+    order = db.query(Order).filter(Order.user_id == user_id, Order.id == order_id).first()
+    if not order:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    order_items = db.query(Order_Item).filter(Order_Item.order_id == order_id).all()
+    return {
+      "order": order,
+      "order_items": order_items
+    }
+  except HTTPException as e:
+    logging.error(f"Error fetching own order by id")
+    raise e
