@@ -47,7 +47,7 @@ workflows:
     jobs:
       - install-python-dependencies
       - build-and-deploy-image:
+          context: DOCKERHUB_AUTH
           requires:
             - install-python-dependencies
-          context: DOCKERHUB_AUTH
           filters: pipeline.git.branch == "api-deploy" # run the build-and-deploy-image job when action is triggered on the api-deploy branch
