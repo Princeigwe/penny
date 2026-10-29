@@ -37,9 +37,9 @@ jobs:
           name: Build and Push Docker image
           command: |
             cd api
-            docker build -t docker.io/$DOCKER_USERNAME/penny:latest .
+            docker build -t $DOCKER_USERNAME/penny:latest .
             docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD docker.io
-            docker push docker.io/$DOCKER_USERNAME/penny:latest
+            docker push $DOCKER_USERNAME/penny:latest
 
 
 workflows:
