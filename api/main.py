@@ -25,7 +25,7 @@ app = FastAPI(
     version="1.0.0",
     contact={
         "name": "Prince Igwe",
-        "url": "https://linkedin.com/in/prince-igwenagha",
+        "url": "https://princeigwe.vercel.app",
     },
 )
 

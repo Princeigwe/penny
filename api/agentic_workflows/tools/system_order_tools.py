@@ -19,13 +19,13 @@ async def settle_order(
   user_id: str, 
   paid_amount: float, 
   paypal_order_id: str, 
-  order_items: list[dict]
+  order_items: list[dict],
+  is_autonomous: bool
 ):
   """
   This is responsible for settling autonomous orders created by Penny agent on behalf of a user, on the system's database. 
   """
   access_token = await generate_agent_access_token()
-  is_autonomous = True
   with SessionLocal() as db:
     result = await agent_create_order(
       user_id, 

@@ -357,7 +357,8 @@ async def auto_capture_paypal_order_agent(state: State):
           "user_id":str(user_id),
           "paid_amount": state["total_price"],
           "paypal_order_id": state["order_id"],
-          "order_items": state["order_items"]
+          "order_items": state["order_items"],
+          "is_autonomous": True
         },
         id="call_6"
       )
@@ -395,6 +396,31 @@ async def auto_capture_paypal_order_agent(state: State):
     "auto_payment_capture_status": status,
     "messages": [llm_response]
   }
+
+
+async def manual_capture_order_agent(state: State):
+  """
+  This agent is responsible for manually capturing payments and settling created orders on the system's database.
+  """
+  user_id = state["user_id"]
+  dummy_ai_message_settle_order = AIMessage(
+    content="",
+    tool_calls = [
+      ToolCall(
+        name="settle_order",
+        args={
+          "user_id":str(user_id),
+          "paid_amount": state["total_price"],
+          "paypal_order_id": state["order_id"],
+          "order_items": state["order_items"],
+          "is_autonomous": False
+        },
+        id="call_7"
+      )
+    ]
+  )
+
+
 
 
 
@@ -438,11 +464,27 @@ def coordinator_agent_condition(state: State):
 
 
 def autonomous_payment_condition(state: State):
-  paypal_vault_payment_token_exists = state["paypal_vault_payment_token_exists"]
-  if paypal_vault_payment_token_exists:
-    return "auto_capture_paypal_order_agent"
+  # converting state["paypal_vault_payment_token_exists"] to boolean in case it is a string
+  raw = state.get("paypal_vault_payment_token_exists", False)
+  if isinstance(raw, str):
+    token_exists = raw.strip().lower() == "true"
   else:
-    return "order_create_agent"
+    token_exists = bool(raw)
+
+  logging.info(f"Agentic Workflow: State Graph: vault token exists = {token_exists!r} (raw={raw!r})")
+
+  if token_exists:
+    return "auto_capture_paypal_order_agent"
+  return "order_create_agent"
+
+  # paypal_vault_payment_token_exists = state["paypal_vault_payment_token_exists"]
+  # print("paypal_vault_payment_token_exists...", paypal_vault_payment_token_exists)
+  # if paypal_vault_payment_token_exists == True:
+  #   logging.info("Agentic Workflow: State Graph: autonomous payment condition met, proceeding to auto_capture_paypal_order_agent")
+  #   return "auto_capture_paypal_order_agent"
+  # else:
+  #   logging.info("Agentic Workflow: State Graph: autonomous payment condition not met, proceeding to order_create_agent")
+  #   return "order_create_agent"
 
 
 state_workflow.add_edge(START, "coordinator_agent")

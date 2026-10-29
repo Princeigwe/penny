@@ -80,8 +80,8 @@ async def agent_get_user_payment_token(
     payment_token = vault_token["decrypted_paypal_token"]
     return payment_token
   except Exception as e:
-    logging.error(f"Error getting user payment token")
-    raise e
+    logging.error(f"Error getting user payment token: {e}")
+    return None
 
 
 async def get_user_paypal_vault_token(user_id: str, db: Session = Depends(get_db)):
