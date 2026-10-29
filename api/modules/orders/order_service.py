@@ -2,12 +2,21 @@ import logging
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination import Page, set_page, set_params
+
+from fastapi_pagination.limit_offset import LimitOffsetParams, LimitOffsetPage
 
 from database_config import get_db
 from .models.order_model import Order
 from .models.order_item_model import Order_Item
+from .dtos.order_dto import Order_Dto
 
 from agentic_workflows.tools.auth_tools import decode_agent_access_token
+from typing import Any
+
+set_page(LimitOffsetPage[Order_Dto])
+set_params(LimitOffsetParams(limit=10, offset=0))
 
 
 
@@ -73,4 +82,31 @@ async def agent_create_order(
     return order
   except HTTPException as e:
     logging.error(f"Error creating order via agent")
+    raise e
+
+
+
+async def get_own_orders(user_id: str, db: Session = Depends(get_db)) -> Page[Order_Dto]:
+  try:
+    own_orders = db.query(Order).filter(Order.user_id == user_id).order_by(Order.created_at.desc())
+    paginated_orders = paginate(own_orders)
+    return paginated_orders
+  except HTTPException as e:
+    logging.error(f"Error fetching own orders")
+    raise e
+
+
+async def get_own_order_by_id(user_id: str, order_id: str, db: Session = Depends(get_db)) -> Order_Dto:
+  try:
+    order = db.query(Order).filter(Order.user_id == user_id, Order.id == order_id).first()
+    if not order:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    order_items = db.query(Order_Item).filter(Order_Item.order_id == order_id).all()
+    return {
+      "order": order,
+      "order_items": order_items
+    }
+  except HTTPException as e:
+    logging.error(f"Error fetching own order by id")
     raise e

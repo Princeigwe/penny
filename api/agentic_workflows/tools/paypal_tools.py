@@ -98,7 +98,7 @@ async def create_order(amount: float):
     return None
 
 
-
+@tool(description="capture order with PayPal Orders API")
 async def capture_order(order_id: str):
   access_token = await get_access_token()
   if not access_token:
