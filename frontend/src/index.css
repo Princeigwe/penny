@@ -440,6 +440,12 @@ button:disabled { cursor: wait; opacity: .72; }
   height: auto !important;
   min-height: auto;
   overflow: visible !important;
+  flex: 0 1 auto;
+}
+.formatted-penny-content {
+  width: 100%;
+  height: auto;
+  overflow: visible;
 }
 .agent-message .muted { margin-top: 5px; color: #84908a; font-size: 10px; }
 .agent-message-row.has-products-row,

@@ -665,10 +665,13 @@ export function PennyReceiptCard({ receipt }: { receipt: ParsedReceipt }) {
 export function parseReceiptFromText(text: string): ParsedReceipt | null {
   const contentLower = text.toLowerCase()
 
-  const hasOrderSummary = /order\s+summary|order\s+details|items?\s+ordered/i.test(text)
-  const hasItems = /(?:item|product):\s*/i.test(text)
-  const hasUnitPrice = /unit\s+price:/i.test(text)
-  const hasOrderTotal = /(?:order\s+total|total\s+amount|total):\s*\$[\d,]+/i.test(text)
+  const hasOrderSummary = /(?:\*\*|#|\b)(?:order\s+summary|order\s+details|items?\s+ordered)/i.test(text)
+  const hasItems =
+    /(?:item|product):\s*/i.test(text) ||
+    /[-*•]\s*[^*\n]+?\s*[—–]\s*\d+\s*[×x]/i.test(text) ||
+    /[-*•]\s*[^*\n]+?\s+-\s+\d+\s*[×x]/i.test(text)
+  const hasUnitPrice = /unit\s+price:/i.test(text) || /[×x]\s*\$[\d,]+/i.test(text)
+  const hasOrderTotal = /(?:order\s+total|total\s+amount|total\s+charged|\bTotal):\s*\$[\d,]+/i.test(text)
   const hasPaymentDetails = /payment\s+details|amount\s+captured/i.test(text)
   const hasPaymentSuccess = /payment\s+(?:has\s+been\s+)?captured\s+successfully/i.test(text)
 
@@ -687,6 +690,7 @@ export function parseReceiptFromText(text: string): ParsedReceipt | null {
     contentLower.includes("payment has been captured") ||
     contentLower.includes("successfully paid") ||
     contentLower.includes("purchase complete") ||
+    contentLower.includes("was collected") ||
     (contentLower.includes("amount captured") && !hasCheckoutUrl)
 
   // STRICT RULE:
@@ -698,12 +702,12 @@ export function parseReceiptFromText(text: string): ParsedReceipt | null {
   // 1. Headline
   let headline = ""
   if (isReceipt) {
-    const headlineMatch = text.match(/^(?:.*?(?:payment\s+(?:has\s+been\s+)?captured\s+successfully|order\s+confirmed|payment\s+complete)[^\n]*)/i)
+    const headlineMatch = text.match(/^(?:.*?(?:payment\s+(?:has\s+been\s+)?captured\s+successfully|order\s+confirmed|payment\s+complete)[^\n]*)/im)
     if (headlineMatch) {
       headline = headlineMatch[0].replace(/[#*_]/g, "").trim()
     }
   } else {
-    const headlineMatch = text.match(/^(?:.*?(?:here\s+are\s+your\s+order\s+details|order\s+summary|order\s+prepared)[^\n]*)/i)
+    const headlineMatch = text.match(/^(?:.*?(?:here\s+are\s+your\s+order\s+details|order\s+summary|order\s+prepared)[^\n]*)/im)
     if (headlineMatch) {
       headline = headlineMatch[0].replace(/[#*_]/g, "").trim()
     }
@@ -711,40 +715,100 @@ export function parseReceiptFromText(text: string): ParsedReceipt | null {
 
   // 2. Items
   const items: ParsedReceipt["items"] = []
-  const itemRegex = /(?:[-*•]\s*)?(?:Item|Product):\s*(?:[*_]{2})?([^*\n]+?)(?:[*_]{2})?(?=\s*(?:\n|Quantity|Unit price|\$|$))/gi
-  let m: RegExpExecArray | null
-  while ((m = itemRegex.exec(text)) !== null) {
-    const name = m[1].trim()
-    if (name) {
-      items.push({ name })
+
+  // Pattern A: Bullet with quantity and unit price / total
+  // e.g. "- Sony WH-CH730N Wireless Noise Cancelling Headphones — 1 × $129.99"
+  const bulletQtyPriceRegex = /^[-*•]\s*(?:\*\*)?([^*\n]+?)(?:\*\*)?\s*(?:[—–]|\s+-\s+)\s*(\d+)\s*[×x]\s*(\$[\d,]+(?:\.\d{2})?)/gim
+  let bpm: RegExpExecArray | null
+  while ((bpm = bulletQtyPriceRegex.exec(text)) !== null) {
+    const name = bpm[1].trim()
+    if (name && !/^(?:total|order total|subtotal|total charged)/i.test(name)) {
+      items.push({
+        name,
+        quantity: bpm[2],
+        unitPrice: bpm[3],
+        total: bpm[3],
+      })
     }
   }
 
+  // Pattern B: Bullet with labeled Quantity & Unit price
+  // e.g. "- **Sony WH-CH730N Wireless Noise Cancelling Headphones** — Quantity: 1 — Unit price: $129.99"
   if (items.length === 0) {
-    const summaryBlockMatch = text.match(/order\s+summary[:\s]*\n+([^\n]+)/i)
-    if (summaryBlockMatch) {
-      const candidate = summaryBlockMatch[1].replace(/^[-*•]\s*/, "").replace(/[#*_]/g, "").trim()
-      if (candidate && !/^(?:quantity|unit\s+price|order\s+total|subtotal):/i.test(candidate)) {
-        items.push({ name: candidate })
+    const bulletLabeledRegex = /^[-*•]\s*(?:\*\*)?([^*\n]+?)(?:\*\*)?\s*(?:[—–]|\s+-\s+)\s*Quantity:\s*(\d+)\s*(?:[—–]|\s+-\s+)\s*Unit\s+price:\s*(\$[\d,]+(?:\.\d{2})?)/gim
+    let blm: RegExpExecArray | null
+    while ((blm = bulletLabeledRegex.exec(text)) !== null) {
+      const name = blm[1].trim()
+      if (name) {
+        items.push({
+          name,
+          quantity: blm[2],
+          unitPrice: blm[3],
+          total: blm[3],
+        })
       }
     }
   }
 
-  const qtyMatch = text.match(/Quantity:\s*(\d+)/i)
-  const unitPriceMatch = text.match(/Unit\s+price:\s*(\$[\d,]+(?:\.\d{2})?)/i)
-  const orderTotalMatch = text.match(/(?:Order\s+total|Total\s+amount|Total):\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[A-Z]{3})?)/i)
+  // Pattern C: Key-Value block
+  // e.g. "Item: Endorphin Pro 4 Running Shoe - Men's (Saucony)\nQuantity: 1\nUnit price: $123.55"
+  if (items.length === 0) {
+    const itemRegex = /(?:[-*•]\s*)?(?:Item|Product):\s*(?:[*_]{2})?([^*\n]+?)(?:[*_]{2})?(?=\s*(?:\n|$))/gi
+    let im: RegExpExecArray | null
+    while ((im = itemRegex.exec(text)) !== null) {
+      const name = im[1].trim()
+      if (name) {
+        items.push({ name })
+      }
+    }
 
-  if (items.length > 0) {
-    if (qtyMatch) items[0].quantity = qtyMatch[1]
-    if (unitPriceMatch) items[0].unitPrice = unitPriceMatch[1]
-    if (orderTotalMatch) items[0].total = orderTotalMatch[1]
+    const qtyMatch = text.match(/Quantity:\s*(\d+)/i)
+    const unitPriceMatch = text.match(/Unit\s+price:\s*(\$[\d,]+(?:\.\d{2})?)/i)
+    const itemTotalMatch = text.match(/(?:Order\s+total|Total\s+charged|Total):\s*(\$[\d,]+(?:\.\d{2})?)/i)
+
+    if (items.length > 0) {
+      if (qtyMatch) items[0].quantity = qtyMatch[1]
+      if (unitPriceMatch) items[0].unitPrice = unitPriceMatch[1]
+      if (itemTotalMatch) items[0].total = itemTotalMatch[1]
+    }
+  }
+
+  // Pattern D: Fallback bullet inside Order summary section
+  if (items.length === 0) {
+    const summarySectionMatch = text.match(/(?:\*\*|#|\b)order\s+summary[:*\s]*\n+([\s\S]+?)(?=\n+\s*(?:\*\*|#|\b)payment\s+details|\n+\s*Complete\s+your\s+purchase|\n+\s*The\s+payment|\n\n|$)/i)
+    if (summarySectionMatch) {
+      const lines = summarySectionMatch[1].split("\n").map((l) => l.trim()).filter(Boolean)
+      for (const line of lines) {
+        if (/^[-*•]\s*(?:Total|Order\s+total|Subtotal|Total\s+charged):/i.test(line)) continue
+        const cleanLine = line.replace(/^[-*•]\s*/, "").replace(/[#*_]/g, "").trim()
+        const priceInLine = cleanLine.match(/(\$[\d,]+(?:\.\d{2})?)/)
+        const namePart = cleanLine.split(/\s+[—–]\s+|\s+-\s+/)[0].trim()
+        if (namePart && !/^(?:quantity|unit\s+price|order\s+total|subtotal):/i.test(namePart)) {
+          items.push({
+            name: namePart,
+            quantity: 1,
+            unitPrice: priceInLine ? priceInLine[1] : undefined,
+            total: priceInLine ? priceInLine[1] : undefined,
+          })
+          break
+        }
+      }
+    }
   }
 
   // 3. Total Amount
+  const totalRegex =
+    /(?:Total\s+charged|Order\s+total|Total\s+amount|Total|Amount\s+captured|Captured\s+amount|Amount\s+collected):\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[A-Z]{3})?)/i
+  const fullCollectedRegex = /(?:The\s+full|Full)\s+(\$[\d,]+(?:\.\d{2})?)\s+was\s+collected/i
+
+  const totalMatch = text.match(totalRegex)
+  const fullCollectedMatch = text.match(fullCollectedRegex)
+
   const totalAmount =
-    orderTotalMatch?.[1] ||
-    (isReceipt ? text.match(/Amount\s+captured:\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[A-Z]{3})?)/i)?.[1] : null) ||
-    unitPriceMatch?.[1] ||
+    totalMatch?.[1]?.replace(/\s*USD$/i, "").trim() ||
+    fullCollectedMatch?.[1] ||
+    items[0]?.total ||
+    items[0]?.unitPrice ||
     "$0.00"
 
   // 4. Payment Details (ONLY for Receipt!)
@@ -752,14 +816,32 @@ export function parseReceiptFromText(text: string): ParsedReceipt | null {
   if (isReceipt) {
     const statusMatch = text.match(/Status:\s*([A-Za-z]+)/i)
     const capMatch = text.match(/Amount\s+captured:\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[A-Z]{3})?)/i)
-    const feeMatch = text.match(/(?:PayPal\s+fee|Fee):\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[-—]\s*[A-Z]{3})?)/i)
-    const netMatch = text.match(/Net\s+amount(?:\s+received)?:\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[-—]\s*[A-Z]{3})?)/i)
+    const feeMatch =
+      text.match(/(?:PayPal\s+(?:processing\s+)?fee|Fee):\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[-—]\s*[A-Z]{3})?)/i) ||
+      text.match(/PayPal\s+fee\s+is\s+(\$[\d,]+(?:\.\d{2})?)/i)
+
+    const netMatch =
+      text.match(/Net\s+amount(?:\s+received)?:\s*(\$[\d,]+(?:\.\d{2})?(?:\s*[-—]\s*[A-Z]{3})?)/i) ||
+      text.match(/amount\s+you'?ll\s+receive(?:\s+after\s+the\s+PayPal\s+processing\s+fee)?\s+is\s+(\$[\d,]+(?:\.\d{2})?)/i)
+
     const protMatch = text.match(/Seller\s+protection:\s*([^•\n]+)/i)
 
+    let fee = feeMatch ? feeMatch[1].replace(/\s*[-—]\s*USD$/i, "").trim() : undefined
+    const netAmount = netMatch ? netMatch[1].replace(/\s*[-—]\s*USD$/i, "").trim() : undefined
+
+    // If fee not explicitly given, but net amount and total are known, compute fee!
+    if (!fee && netAmount && totalAmount && totalAmount !== "$0.00") {
+      const totNum = parseFloat(totalAmount.replace(/[^0-9.]/g, ""))
+      const netNum = parseFloat(netAmount.replace(/[^0-9.]/g, ""))
+      if (!isNaN(totNum) && !isNaN(netNum) && totNum >= netNum) {
+        fee = `$${(totNum - netNum).toFixed(2)}`
+      }
+    }
+
     paymentDetails = {
-      amountCaptured: capMatch ? capMatch[1] : totalAmount,
-      fee: feeMatch ? feeMatch[1] : undefined,
-      netAmount: netMatch ? netMatch[1] : undefined,
+      amountCaptured: capMatch ? capMatch[1].replace(/\s*USD$/i, "").trim() : totalAmount,
+      fee,
+      netAmount,
       status: statusMatch ? statusMatch[1] : "Completed",
       protection: protMatch ? protMatch[1].trim() : undefined,
     }
@@ -767,7 +849,12 @@ export function parseReceiptFromText(text: string): ParsedReceipt | null {
 
   // 5. Shipping
   let shipping: ParsedReceipt["shipping"] = undefined
-  const shipMatch = text.match(/(?:\*?Shipping\s+to\*?[:\s*]*)([^•\n]+(?:•\s*[^•\n]+)*)/i)
+  const shipMatch =
+    text.match(/(?:\*?Shipping\s+to\*?[:\s*]*)([^•\n]+(?:•\s*[^•\n]+)*)/i) ||
+    text.match(/Shipping\s+to:\s*([^\n]+)/i)
+
+  const paidViaMatch = text.match(/Paid\s+via\s+PayPal\s*\(([^)]+)\)/i)
+
   if (shipMatch) {
     const rawSegments = shipMatch[1]
       .split("•")
@@ -781,14 +868,19 @@ export function parseReceiptFromText(text: string): ParsedReceipt | null {
       }
     } else if (rawSegments.length === 1) {
       shipping = {
+        recipient: paidViaMatch ? paidViaMatch[1].trim() : undefined,
         address: rawSegments[0],
       }
+    }
+  } else if (paidViaMatch) {
+    shipping = {
+      recipient: paidViaMatch[1].trim(),
     }
   }
 
   // 6. Notes
   let notes = ""
-  const noteMatch = text.match(/(?:The payment was made through PayPal[^\n]*|No further action is needed[^\n]*|If you have questions[^\n]*)/i)
+  const noteMatch = text.match(/(?:The payment was made through PayPal[^\n]*|No further action is needed[^\n]*|If you have questions[^\n]*|The payment was processed as a final capture[^\n]*)/i)
   if (noteMatch) {
     notes = noteMatch[0].replace(/^[•\s*-]+/, "").trim()
   }
@@ -856,9 +948,12 @@ export function formatPennyMessage(text: string): ReactNode {
     if (pendingProducts.length > 0) {
       // Safety check: ensure at least one item has an image or a verified retailer or brand!
       // If none have an image and none have a retailer, they are ledger/receipt items or standard bullets!
-      const hasRealProduct = pendingProducts.some(
-        (p) => Boolean(p.imageUrl || p.retailer) && !NON_PRODUCT_REGEX.test(p.title.trim()),
-      )
+      const hasRealProduct =
+        pendingProducts.length > 0 &&
+        pendingProducts.every((p) => !NON_PRODUCT_REGEX.test(p.title.trim())) &&
+        pendingProducts.some(
+          (p) => Boolean(p.imageUrl || (p.retailer && /\.[a-z]{2,}/i.test(p.retailer))),
+        )
 
       if (!hasRealProduct) {
         // Fallback to standard bullet list
@@ -1004,7 +1099,7 @@ export function formatPennyMessage(text: string): ReactNode {
     }
 
     // 5. Retailer (e.g. at snipesusa.com, jdsports.com or from fleetfeet.com)
-    const retailerMatch = text.match(/(?:at|available at|store:?|from:?)\s+([A-Z0-9][\w\s&'.-]{1,35}?)(?=\s*,|\s+and\b|\s*\([iI]n\s*[sS]tock|\s*;|\s*$|\s*rated|\s*—|\s*–)/i)
+    const retailerMatch = text.match(/(?:\b(?:at|available at|store|from)\b:?)\s+([A-Z0-9][\w\s&'.-]{1,35}?)(?=\s*,|\s+and\b|\s*\([iI]n\s*[sS]tock|\s*;|\s*$|\s*rated|\s*—|\s*–)/i)
     if (retailerMatch && !product.retailer) {
       product.retailer = retailerMatch[1].trim().replace(/\.$/, "")
     }
@@ -1040,7 +1135,7 @@ export function formatPennyMessage(text: string): ReactNode {
   }
 
   const NON_PRODUCT_REGEX =
-    /^(?:unit\s+price|order\s+total|amount(?:\s+captured|\s+paid|\s+due|\s+refunded)?|captured\s+amount|subtotal|total(?:\s+amount)?|grand\s+total|tax(?:es)?|sales\s+tax|shipping(?:(?:\s+and|\s*&)?\s*handling)?|discount|fees?|service\s+fee|payment(?:\s+details|\s+method|\s+status|\s+capture|\s+summary)?|status|order\s+(?:id|number|reference|summary|status)|capture\s+(?:id|status)|balance|transaction(?:\s+id)?|refund|authorized(?:\s+amount)?|price|cost|estimate|summary|details|note|notes|tip|warning|disclaimer|item\s+total):?$/i
+    /^(?:unit\s+price|order\s+total|amount(?:\s+captured|\s+paid|\s+due|\s+refunded)?|captured\s+amount|subtotal|total(?:\s+amount|\s+charged)?|grand\s+total|tax(?:es)?|sales\s+tax|shipping(?:(?:\s+and|\s*&)?\s*handling)?|discount|fees?|paypal\s+fee|service\s+fee|net\s+amount(?:\s+received)?|seller\s+protection|shipping\s+to|paid\s+via(?:\s+paypal)?|payment(?:\s+details|\s+method|\s+status|\s+capture|\s+summary)?|status|order\s+(?:id|number|reference|summary|status|details)|capture\s+(?:id|status)|balance|transaction(?:\s+id)?|refund|authorized(?:\s+amount)?|price|cost|estimate|summary|details|note|notes|tip|warning|disclaimer|item\s+total|quantity):?$/i
 
   function parseProductHeader(trimmed: string, nextLine?: string): { index?: string; title: string; remaining: string } | null {
     if (

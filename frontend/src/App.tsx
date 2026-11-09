@@ -17,7 +17,7 @@ import SuccessPage from "./pages/SuccessPage";
 import CancelPage from "./pages/CancelPage";
 import AutonomyPage from "./pages/AutonomyPage";
 import OrdersModal from "./OrdersModal";
-import { formatPennyMessage } from "./utils/formatMarkdown";
+import { formatPennyMessage, parseReceiptFromText } from "./utils/formatMarkdown";
 import { pennyLogo, paypalLogo } from "./assets";
 
 export type View =
@@ -188,7 +188,8 @@ function viewFromPath(pathname: string): View {
     clean.startsWith("/orders")
   )
     return "success";
-  if (clean === "/checkout/cancel" || clean === "/payment/cancel") return "cancel";
+  if (clean === "/checkout/cancel" || clean === "/payment/cancel")
+    return "cancel";
   if (clean === "/autonomy" || clean.startsWith("/autonomy")) return "autonomy";
   return "landing";
 }
@@ -1041,10 +1042,14 @@ function ChatView({
             const isUser = msg.role === "user";
             const contentLower = msg.content.toLowerCase();
 
+            const parsedReceipt = !isUser ? parseReceiptFromText(msg.content) : null;
+            const isReceiptSettled = parsedReceipt?.kind === "receipt";
+
             // Detect if this message confirms order settlement, capture, or completed payment
             const isOrderSettled =
               !isUser &&
-              (contentLower.includes("captured") ||
+              (isReceiptSettled ||
+                contentLower.includes("captured") ||
                 contentLower.includes("payment complete") ||
                 contentLower.includes("payment received") ||
                 contentLower.includes("order settled") ||
@@ -1055,17 +1060,18 @@ function ChatView({
                 contentLower.includes("payment success") ||
                 contentLower.includes("transaction id"));
 
-            // Only show checkout button if it's genuinely a pending checkout, has an explicit checkout URL, and is NOT captured
+            // Only show checkout button if it's genuinely a pending checkout, has an explicit checkout URL, and is NOT a settled receipt
             const hasCheckoutUrl =
               msg.content.includes("sandbox.paypal.com") ||
               contentLower.includes("paypal.com/checkoutnow") ||
               contentLower.includes("paypal.com/checkout");
 
             const hasCheckoutPrompt =
-              !isUser && !isOrderSettled && hasCheckoutUrl;
+              !isUser && !isOrderSettled && (hasCheckoutUrl || parsedReceipt?.kind === "invoice");
 
             const hasProducts =
               !isUser &&
+              !parsedReceipt &&
               /^(?:(\d+)\.|\-|\*)\s+\*\*([^*]+)\*\*/m.test(msg.content);
 
             return (
@@ -1110,7 +1116,7 @@ function ChatView({
                         style={{
                           display: "block",
                           width: "100%",
-                          height: "400px",
+                          height: "auto",
                         }}
                       />
                       {msg.fileName && (
@@ -1171,7 +1177,7 @@ function ChatView({
                     </div>
                   )}
 
-                  {isOrderSettled && (
+                  {isOrderSettled && !parsedReceipt && (
                     <div
                       style={{
                         marginTop: 12,
